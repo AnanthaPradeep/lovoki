@@ -200,7 +200,7 @@ def main(visuals_only=False):
 
             def restricted_profile():
                 go(pg, f"/u/{SEED['ben']}"); expect(pg.get_by_test_id('handle')).to_have_text('@ben.test'); expect(pg.get_by_role('heading', name='This account is private')).to_be_visible()
-                assert 'Test profile: Ben Test' in pg.inner_text('main'), 'D3: the bio of a private account stays visible'; expect(pg.get_by_text('Ben post')).to_have_count(0); expect(pg.locator('.pgrid-tile')).to_have_count(0)
+                assert 'Test profile: Ben Test' in pg.inner_text('main'), 'D3: the bio of a private account stays visible'; expect(pg.get_by_text('Ben post')).to_have_count(0); expect(pg.locator('a.pgrid-tile')).to_have_count(0)
                 btn(pg, 'Request to follow').click(); expect(pg.get_by_role('button', name='Requested')).to_be_visible(); expect(pg.get_by_role('heading', name='Request sent')).to_be_visible()
             T('private profile: handle, name and bio, lock panel, request to follow, shows Requested', restricted_profile)
 
@@ -284,7 +284,7 @@ def main(visuals_only=False):
                 def layout():
                     go(lp, path_)
                     if name == 'explore': lp.get_by_role('tab', name='Explore').click(); wait_posts(lp, 15)
-                    if name == 'profile': lp.wait_for_selector('.pgrid-tile', timeout=6000)
+                    if name == 'profile': lp.wait_for_selector('a.pgrid-tile', timeout=6000)
                     lp.wait_for_timeout(350)
                     o = overflow(lp); assert o <= 0, f'{tag} {name}: horizontal overflow {o}px'
                     if w_ == 390:

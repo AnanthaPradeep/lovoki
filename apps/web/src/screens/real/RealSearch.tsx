@@ -24,6 +24,7 @@ export function RealSearch() {
   const [status, setStatus] = useState<Status>('idle');
   const [err, setErr] = useState('');
   const [active, setActive] = useState(-1);
+  const [attempt, setAttempt] = useState(0); // bumped by Try again so the same query is searched again
   const [open, setOpen] = useState(true);
   const seq = useRef(0);
   const listId = useId();
@@ -38,7 +39,7 @@ export function RealSearch() {
         .catch((e) => { if (my === seq.current) { setErr(e instanceof SocialFailure ? e.message : 'Search didn’t work. Try again.'); setStatus('error'); } });
     }, 250);
     return () => clearTimeout(t);
-  }, [api, term, long]);
+  }, [api, term, long, attempt]);
 
   useEffect(() => { const next = new URLSearchParams(params); if (term) next.set('q', term); else next.delete('q'); if (next.toString() !== params.toString()) setParams(next, { replace: true }); }, [term]); // eslint-disable-line react-hooks/exhaustive-deps -- mirror the query into the URL only
 
@@ -67,7 +68,7 @@ export function RealSearch() {
         <span className="hint" id={`${listId}-hint`}>Type at least {MIN} characters. Private accounts appear with a lock; you’ll see only their name and handle.</span>
       </div>
       <div aria-live="polite" className="sr-only" data-testid="search-status">{status === 'loading' ? 'Searching' : status === 'ready' ? `${shown.length} ${shown.length === 1 ? 'result' : 'results'}` : ''}</div>
-      {status === 'error' && <LoadError message={err} onRetry={() => setQ((x) => `${x} `.trimEnd())} />}
+      {status === 'error' && <LoadError message={err} onRetry={() => setAttempt((n) => n + 1)} />}
       {status === 'idle' && <p className="subtle" data-testid="search-idle">{term ? `Keep typing: at least ${MIN} characters.` : 'Results show up here as you type.'}</p>}
       {status === 'loading' && <div className="skeleton" style={{ height: 64 }} aria-busy="true" aria-label="Searching" />}
       {status === 'ready' && shown.length === 0 && <EmptyState icon={<SearchX size={28} />} title="No one found" body={`Nobody matches “${term}”. Check the spelling, or try just the start of a name or @username.`} />}

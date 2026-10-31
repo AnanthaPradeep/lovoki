@@ -49,7 +49,8 @@ if (hosted) {
   if (env.SEED_URL !== `https://${ref}.supabase.co`) die('SEED_URL does not match the project ref you confirmed. Nothing was done.', 2);
   URL_ = env.SEED_URL; SERVICE = env.SEED_SERVICE_KEY;
 } else {
-  const env = readEnvFile('./.seed.env', /^([A-Z_0-9]+)="(.*)"$/);
+  // The integration tests pass the local stack's values through the environment instead of the file.
+  const env = process.env.LOVOKI_SEED_API_URL ? { API_URL: process.env.LOVOKI_SEED_API_URL, SERVICE_ROLE_KEY: process.env.LOVOKI_SEED_SERVICE_KEY } : readEnvFile('./.seed.env', /^([A-Z_0-9]+)="(.*)"$/);
   if (!env) die('Missing scripts/.seed.env. Create it with:  npx supabase status -o env > scripts/.seed.env', 1);
   URL_ = env.API_URL; SERVICE = env.SERVICE_ROLE_KEY;
   if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(URL_ ?? '')) die(`Refusing: without --hosted the API_URL must be a local address (got ${URL_ ?? 'nothing'}).`, 2);
@@ -62,7 +63,12 @@ const cfg = await admin.from('app_config').select('environment').maybeSingle();
 if (cfg.error || !cfg.data) die('This database has no app_config table (apply the Phase 4.5 migration first). Nothing was done.', 2);
 if (cfg.data.environment !== 'development') die(`Refusing: app_config.environment is "${cfg.data.environment}". Sample content exists only in development.`, 2);
 
-const ask = async (q) => { const rl = createInterface({ input: process.stdin, output: process.stdout }); try { return (await rl.question(q)).trim(); } finally { rl.close(); } };
+// Closed input (a pipe, a CI job) counts as "no": the callback form lets us answer '' when stdin ends instead of waiting forever.
+const ask = (q) => new Promise((resolve) => {
+  const rl = createInterface({ input: process.stdin, output: process.stdout }); let answered = false;
+  rl.on('close', () => { if (!answered) resolve(''); });
+  rl.question(q, (a) => { answered = true; rl.close(); resolve(a.trim()); });
+});
 const EMAIL_DOMAIN = '@sample.lovoki.invalid'; // reserved TLD: can never receive mail
 
 /* ------------------------------------------------------------------ remove */
