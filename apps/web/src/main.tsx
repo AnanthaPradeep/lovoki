@@ -6,7 +6,7 @@ import '@fontsource-variable/figtree';
 import { toCssVariables } from '@lovoki/tokens';
 import './styles.css';
 import { appConfig } from './config';
-import { ToastProvider } from './ui';
+import { AppSkeleton, ToastProvider } from './ui';
 import { ConfigError } from './screens/ConfigError';
 
 // Tokens are emitted from the shared package, so every surface reads the same values.
@@ -25,9 +25,9 @@ const RealApp = lazy(() => import('./RealApp').then((m) => ({ default: m.RealApp
 const UiTest = import.meta.env.MODE === 'uitest' ? lazy(() => import('./uitest').then((m) => ({ default: m.UiTestApp }))) : null;
 
 function Root() {
-  if (UiTest) return <ToastProvider><Suspense fallback={null}><UiTest /></Suspense></ToastProvider>;
+  if (UiTest) return <ToastProvider><Suspense fallback={<AppSkeleton />}><UiTest /></Suspense></ToastProvider>;
   if (appConfig.mode === 'error') return <ConfigError problems={appConfig.problems} />;
-  return <ToastProvider><Suspense fallback={null}>{appConfig.mode === 'supabase' ? <RealApp cfg={appConfig} /> : <DemoApp />}</Suspense></ToastProvider>;
+  return <ToastProvider><Suspense fallback={<AppSkeleton />}>{appConfig.mode === 'supabase' ? <RealApp cfg={appConfig} /> : <DemoApp />}</Suspense></ToastProvider>;
 }
 
 // A data router is required for the unsaved-changes blocker. The single-file preview uses hash URLs because it has no server.

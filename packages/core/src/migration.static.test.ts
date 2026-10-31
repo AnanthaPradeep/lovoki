@@ -11,9 +11,11 @@ const noComments = sql.replace(/--.*$/gm, '');
 
 describe('migration text', () => {
   const tables = [...noComments.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]!);
-  it('finds the expected tables', () => expect(tables.sort()).toEqual(['dating_preferences', 'interests', 'onboarding_state', 'profile_interests', 'profile_photos', 'profile_prompts', 'profiles', 'profiles_private']));
+  it('finds the expected tables', () => expect(tables.sort()).toEqual([
+    'blocks', 'content_reports', 'dating_preferences', 'follows', 'interests', 'notifications', 'onboarding_state', 'post_comments', 'post_likes',
+    'post_media', 'post_saves', 'posts', 'profile_interests', 'profile_photos', 'profile_prompts', 'profiles', 'profiles_private']));
   it('enables row level security on every client-accessible table', () => {
-    const looped = /foreach t in array array\[([^\]]+)\]/.exec(noComments)![1]!.match(/'(\w+)'/g)!.map((s) => s.replace(/'/g, ''));
+    const looped = [...noComments.matchAll(/foreach t in array array\[([^\]]+)\]/g)].flatMap((m) => m[1]!.match(/'(\w+)'/g)!.map((s) => s.replace(/'/g, '')));
     for (const t of tables) expect(looped.includes(t) || new RegExp(`alter table public\\.${t} enable row level security`).test(noComments), t).toBe(true);
     expect(noComments).toMatch(/enable row level security/);
   });
@@ -26,7 +28,19 @@ describe('migration text', () => {
     expect(defs.length).toBeGreaterThan(5);
     for (const d of defs) expect(d.split(/\$\$/)[0], d.slice(0, 60)).toMatch(/set search_path\s*=\s*''/i);
   });
-  it('never references a service role or secret', () => { expect(noComments).not.toMatch(/service_role|sb_secret/i); });
+  it('never embeds a secret or key (granting a function to service_role for operators is allowed)', () => {
+    expect(noComments).not.toMatch(/sb_secret|eyJ[A-Za-z0-9_-]{10,}|service_role_key/i);
+    for (const m of noComments.matchAll(/service_role/gi)) expect(noComments.slice(Math.max(0, m.index! - 40), m.index!), 'service_role only appears in a GRANT').toMatch(/to\s+$/i);
+  });
+  it('Phase 3: clients get no SELECT on posts, post_media, post_likes or post_comments (read only through the page functions)', () => {
+    const grants = [...noComments.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1]).join(',');
+    for (const t of ['posts', 'post_media', 'post_likes', 'post_comments']) expect(grants, t).not.toContain(`public.${t}`);
+  });
+  it('Phase 3: social code never reads dating state', () => {
+    const social = noComments.slice(noComments.indexOf('create table public.blocks'));
+    const withoutPhotoRule = social.replace(/create or replace function public\.can_view_photos_of[\s\S]*?end \$\$;/, '');
+    expect(withoutPhotoRule).not.toMatch(/dating_preferences|dating_discoverable|match/i);
+  });
   it('the public views use date_of_birth only as the input to age_of(), never as an output column', () => {
     for (const v of ['public_profiles', 'discoverable_profiles']) {
       const body = new RegExp(`create view public\\.${v}[\\s\\S]*?;`).exec(noComments)![0];

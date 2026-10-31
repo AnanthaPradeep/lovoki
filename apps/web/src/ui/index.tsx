@@ -124,6 +124,20 @@ export function EmptyState({ icon, title, body, action }: { icon: ReactNode; tit
   return <div className="empty"><div className="icon-wrap" aria-hidden>{icon}</div><h2>{title}</h2><p>{body}</p>{action}</div>;
 }
 
+/** Shown while a lazily loaded app root downloads, so the first frame is never blank. Uses the shell geometry. */
+export function AppSkeleton() {
+  return (
+    <div className="shell" data-testid="app-skeleton" aria-busy="true" aria-live="polite">
+      <span className="sr-only" role="status">Loading LOVOKI</span>
+      <div className="sidebar" aria-hidden><div className="skeleton" style={{ height: 28, width: 120 }} /></div>
+      <main className="main"><div className="page stack" aria-hidden>
+        <div className="skeleton" style={{ height: 32, width: 180 }} />
+        <div className="skeleton" style={{ aspectRatio: '4/5', borderRadius: 22 }} />
+      </div></main>
+    </div>
+  );
+}
+
 export const Spinner = ({ label = 'Loading' }: { label?: string }) => <span className="spinner" role="status" aria-label={label} />;
 
 export function FieldError({ id, children }: { id: string; children?: string }) {

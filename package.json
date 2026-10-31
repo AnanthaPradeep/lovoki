@@ -12,6 +12,10 @@
     "test": "vitest run",
     "lint": "eslint apps/web/src packages/core/src packages/tokens/src",
     "test:db": "bash scripts/db-test.sh",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "db:start": "supabase start -x studio,imgproxy,edge-runtime,vector,logflare",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > apps/web/src/data/database.types.ts",
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "dev:demo": "npm run dev -w @lovoki/web -- --port 5175 --host 127.0.0.1",
     "dev:uitest": "npm run dev -w @lovoki/web -- --mode uitest --port 5174 --host 127.0.0.1",
@@ -21,12 +25,14 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "22.15.29",
+    "@types/ws": "^8.18.2",
     "eslint": "10.14.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
     "supabase": "^2.122.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "8.72.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "ws": "^8.22.0"
   }
 }
