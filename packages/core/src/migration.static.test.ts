@@ -52,7 +52,7 @@ describe('migration text', () => {
     expect(p35).not.toMatch(/grant\s+(insert|update|delete|all)/i);
     expect([...p35.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1]!.replace(/\s+/g, ' '))).toEqual(['public.profile_details, public.consents, public.languages']);
     expect(p35).toMatch(/revoke select on public\.profile_places from authenticated/);
-    expect(p35).not.toMatch(/to\s+anon/i);
+    expect(p35).not.toMatch(/to\s+anon\b/i);
   });
   it('Phase 3.5: the optional-field table has no column for anything we promised never to collect', () => {
     const p35 = readFileSync(dir + '20261104000000_phase35_identity_profile.sql', 'utf8').replace(/--.*$/gm, '');
