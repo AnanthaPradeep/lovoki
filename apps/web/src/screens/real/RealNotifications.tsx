@@ -73,7 +73,7 @@ export function RealNotifications() {
                     <button type="button" className="btn btn-secondary btn-sm" disabled={!!busy} onClick={() => void respond(n, false)}>Decline</button>
                   </div>
                 )}
-                {(n.type === 'like' || n.type === 'comment') && <Link to="/me" className="btn btn-ghost btn-sm">View your posts</Link>}
+                {(n.type === 'like' || n.type === 'comment') && n.postId && <Link to={`/p/${n.postId}`} className="btn btn-ghost btn-sm">View post</Link>}
                 {n.type === 'match' && <Link to="/connections?tab=matches" className="btn btn-secondary btn-sm">See your matches</Link>}
               </li>
             ))}

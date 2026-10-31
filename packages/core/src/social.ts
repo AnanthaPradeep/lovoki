@@ -2,6 +2,8 @@
    Pure functions only. The database enforces every rule here again; these exist so the UI can explain and respond fast. */
 
 import type { Audience } from './types';
+import type { AvatarCrop } from './dating';
+import type { VisibleDetails } from './profile';
 
 export type FollowStatus = 'pending' | 'accepted';
 export type FeedKind = 'following' | 'explore';
@@ -35,6 +37,8 @@ export interface PostView {
   likedByMe: boolean;
   savedByMe: boolean;
   isMine: boolean;
+  /** False when the author limits comments (followers only, or nobody) and you are not allowed. */
+  commentsAllowed: boolean;
   /** Opaque keyset cursor pointing at this row. */
   cursor: string;
   /** Values to restore if an optimistic change fails. Present only while a request is in flight. */
@@ -58,8 +62,10 @@ export type PeopleKind = 'following' | 'followers' | 'requests';
 export interface SocialCounts { following: number; followers: number; requests: number }
 
 export interface SocialProfileView {
-  userId: string; displayName: string; pronouns: string | null; bio: string | null; areaLabel: string | null; age: number | null;
-  photoPath: string | null;
+  userId: string; username: string | null; displayName: string; pronouns: string | null; bio: string | null; areaLabel: string | null; age: number | null;
+  gender: string | null; genderCustom: string | null; photoPath: string | null; avatarCrop: AvatarCrop | null; interests: string[]; prompts: { question: string; answer: string }[];
+  /** Only the optional fields this viewer may see. */
+  details: VisibleDetails;
   /** True when the viewer may only see a name (followers-only profile, not an accepted follower). */
   restricted: boolean; isSelf: boolean;
   followStatus: FollowStatus | null; followsMeStatus: FollowStatus | null;
@@ -94,6 +100,8 @@ export interface SocialApi {
   feed(kind: FeedKind, cursor?: string | null): Promise<Page<PostView>>;
   authorPosts(authorId: string, cursor?: string | null): Promise<Page<PostView>>;
   savedPosts(cursor?: string | null): Promise<Page<PostView>>;
+  /** One post, or null when it doesn't exist or you may not see it (the same answer for both). */
+  post(id: string): Promise<PostView | null>;
   /** `id` is chosen by the client so the media path can name the post before it exists. `image` is already processed. */
   createPost(input: { id: string; caption: string; audience: Audience; image: Blob | null }): Promise<void>;
   deletePost(id: string): Promise<void>;
@@ -112,6 +120,8 @@ export interface SocialApi {
   people(kind: PeopleKind, cursor?: string | null): Promise<Page<PersonRow>>;
   counts(): Promise<SocialCounts>;
   profile(userId: string): Promise<SocialProfileView | null>;
+  /** Resolves /@handle to a person you may see, or null. */
+  resolveUsername(handle: string): Promise<string | null>;
   block(userId: string): Promise<void>;
   unblock(userId: string): Promise<void>;
   blocked(): Promise<BlockedPerson[]>;

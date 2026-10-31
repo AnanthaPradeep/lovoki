@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   AccountFailure, PHOTO_BUCKET, PHOTO_PATH_RE, accountFromRows, interestSlug, photoPath, sniffImageType, validateStoredPhoto,
   type AboutInput, type Account, type AccountApi, type AccountPhoto, type AccountRows, type BasicsInput, type PreferencesInput,
-  type PrivacyInput, type Step, type UserScope, type DatingProfileInput, type DatingFilters, type Place,
+  type PrivacyInput, type Step, type UserScope, type DatingProfileInput, type DatingFilters, type PlaceHit, type AvatarCrop, type ProfileDetails, type VisibilityMap, type HandleStatus, type AllowComments, detailsPatch,
 } from '@lovoki/core';
 
 interface DbError { message?: string; code?: string; status?: number; statusCode?: string | number }
@@ -18,6 +18,10 @@ export function toAccountFailure(e: unknown): AccountFailure {
   if (m.includes('LOVOKI_DOB_IMPLAUSIBLE')) return new AccountFailure('invalid', 'Check the year of birth.');
   const inc = /LOVOKI_ONBOARDING_INCOMPLETE:([\w,]+)/.exec(m);
   if (inc) return new AccountFailure('onboarding_incomplete', 'Finish the required steps first.', inc[1]!.split(','));
+  if (m.includes('LOVOKI_USERNAME_COOLDOWN')) return new AccountFailure('invalid', 'You can change your username once every 30 days.');
+  if (m.includes('LOVOKI_USERNAME_UNAVAILABLE')) return new AccountFailure('invalid', 'That username isn’t available.');
+  if (m.includes('LOVOKI_USERNAME_RESERVED') || m.includes('LOVOKI_USERNAME_INVALID')) return new AccountFailure('invalid', 'Choose a different username: 3 to 30 lowercase letters, numbers, dots or underscores.');
+  if (m.includes('LOVOKI_RATE_LIMITED')) return new AccountFailure('network', 'That’s a lot of tries in a short time. Wait a little and try again.');
   if (m.includes('LOVOKI_PHOTO_LIMIT')) return new AccountFailure('photo_limit', 'You can add up to 6 photos.');
   if (m.includes('LOVOKI_PHOTO_MISSING')) return new AccountFailure('invalid', 'The upload didn’t finish. Try again.');
   if (m.includes('LOVOKI_LAST_PHOTO')) return new AccountFailure('invalid', 'Keep at least one photo on your profile.');
@@ -29,6 +33,8 @@ export function toAccountFailure(e: unknown): AccountFailure {
 }
 
 const ORPHAN_AGE_MS = 10 * 60 * 1000;
+
+type PlaceRow = { id: number; name: string; region: string; country_code: string; country: string; label: string };
 
 export class SupabaseAccountApi implements AccountApi {
   private urls = new Map<string, { url: string; exp: number }>();
@@ -45,20 +51,22 @@ export class SupabaseAccountApi implements AccountApi {
   async load(): Promise<Account> {
     await this.rpc('ensure_account'); // repairs partially created accounts; idempotent
     const id = this.userId, sb = this.sb;
-    const [priv, prof, prefs, onb, ints, prompts, photos, place] = await Promise.all([
+    const [priv, prof, prefs, onb, ints, prompts, photos, place, details, consent] = await Promise.all([
       sb.from('profiles_private').select('date_of_birth').eq('user_id', id).maybeSingle(),
-      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable,gender,show_gender,show_distance').eq('user_id', id).maybeSingle(),
-      sb.from('dating_preferences').select('interested_in,age_min,age_max,max_distance_km,filter_intentions,filter_interests').eq('user_id', id).maybeSingle(),
+      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable,gender,show_gender,show_distance,username,gender_custom,avatar_photo_id,avatar_crop,allow_comments,show_follower_counts').eq('user_id', id).maybeSingle(),
+      sb.from('dating_preferences').select('interested_in,age_min,age_max,max_distance_km,filter_intentions,filter_interests,filter_height_min,filter_height_max,filter_drinking,filter_smoking,filter_kids').eq('user_id', id).maybeSingle(),
       sb.from('onboarding_state').select('current_step,completed_at').eq('user_id', id).maybeSingle(),
       sb.from('profile_interests').select('slug').eq('user_id', id),
       sb.from('profile_prompts').select('position,question,answer').eq('user_id', id).order('position'),
       sb.from('profile_photos').select('id,storage_path,position,content_type,size_bytes').eq('user_id', id).order('position'),
-      sb.from('profile_places').select('lat,lng').eq('user_id', id).maybeSingle(),
+      sb.rpc('my_place'),
+      sb.from('profile_details').select('*').eq('user_id', id).maybeSingle(),
+      sb.from('consents').select('terms_version,marketing').eq('user_id', id).maybeSingle(),
     ]);
-    for (const r of [priv, prof, prefs, onb, ints, prompts, photos, place]) if (r.error) throw toAccountFailure(r.error);
+    for (const r of [priv, prof, prefs, onb, ints, prompts, photos, place, details, consent]) if (r.error) throw toAccountFailure(r.error);
     if (!priv.data || !prof.data || !prefs.data || !onb.data) throw new AccountFailure('unknown', 'Your profile couldn’t be loaded. Try again.');
     const rows = { userId: id, email: this.email, private: priv.data, profile: prof.data, prefs: prefs.data, onboarding: onb.data,
-      interests: ints.data ?? [], prompts: prompts.data ?? [], photos: photos.data ?? [], place: place.data ?? null } as unknown as AccountRows;
+      interests: ints.data ?? [], prompts: prompts.data ?? [], photos: photos.data ?? [], place: (place.data as unknown[] | null)?.[0] ?? null, details: details.data ?? null, consent: consent.data ?? null } as unknown as AccountRows;
     const account = accountFromRows(rows);
     void this.sweepOrphans(account.photos);
     return account;
@@ -113,10 +121,23 @@ export class SupabaseAccountApi implements AccountApi {
     return data.signedUrl;
   }
 
-  async saveDatingProfile(i: DatingProfileInput) { await this.rpc('save_dating_profile', { p_gender: i.gender, p_show_gender: i.showGender, p_show_distance: i.showDistance }); }
-  async savePlace(p: Place) { await this.rpc('save_place', { p_label: p.label, p_lat: p.lat, p_lng: p.lng }); }
+  async saveDatingProfile(i: DatingProfileInput) { await this.rpc('save_dating_profile', { p_gender: i.gender, p_show_gender: i.showGender, p_show_distance: i.showDistance, p_gender_custom: i.genderCustom ?? undefined }); }
+  async savePlace(placeId: number) { await this.rpc('save_place_id', { p_place_id: placeId }); }
   async clearPlace() { await this.rpc('clear_place'); }
-  async saveFilters(f: DatingFilters) { await this.rpc('save_dating_filters', { p_intentions: f.intentions, p_interests: f.interests.map(interestSlug) }); }
+  async saveFilters(f: DatingFilters) {
+    await this.rpc('save_dating_filters', { p_intentions: f.intentions, p_interests: f.interests.map(interestSlug), p_height_min: f.heightMin ?? undefined, p_height_max: f.heightMax ?? undefined, p_drinking: f.drinking, p_smoking: f.smoking, p_kids: f.kids });
+  }
+
+  async checkUsername(handle: string): Promise<HandleStatus> { return (await this.rpc('check_username', { p_handle: handle })) as HandleStatus; }
+  async setUsername(handle: string) { await this.rpc('set_username', { p_handle: handle }); }
+  private toHit = (r: PlaceRow): PlaceHit => ({ id: r.id, name: r.name, region: r.region, countryCode: r.country_code, country: r.country, label: r.label });
+  async searchPlaces(query: string) { return (await this.rpc<PlaceRow[]>('search_places', { p_query: query })).map(this.toHit); }
+  async nearestPlaces(lat: number, lng: number) { return (await this.rpc<PlaceRow[]>('nearest_places', { p_lat: lat, p_lng: lng })).map(this.toHit); }
+  async saveDetails(d: ProfileDetails, visibility: VisibilityMap, opts: { religionOptIn: boolean }) { await this.rpc('save_profile_details', { p_patch: detailsPatch(d, opts) as never, p_visibility: visibility as never }); }
+  async saveAvatar(photoId: string | null, crop: AvatarCrop | null) { await this.rpc('save_avatar', { p_photo_id: photoId ?? undefined, p_crop: (crop ?? undefined) as never }); }
+  async saveSocialSettings(x: { allowComments: AllowComments; showFollowerCounts: boolean }) { await this.rpc('save_social_settings', { p_allow_comments: x.allowComments, p_show_follower_counts: x.showFollowerCounts }); }
+  async recordConsent(termsVersion: string, marketing?: boolean) { await this.rpc('record_consent', { p_terms_version: termsVersion, p_confirm_18: true, p_marketing: marketing ?? undefined }); }
+  async setMarketingConsent(on: boolean) { await this.rpc('set_marketing_consent', { p_on: on }); }
 
   async completeOnboarding() { return this.rpc<string>('complete_onboarding'); }
 

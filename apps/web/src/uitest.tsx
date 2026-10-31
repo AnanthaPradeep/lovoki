@@ -1,6 +1,6 @@
 // DEV/TEST ONLY. Loaded only by `vite --mode uitest`. Drives the real-mode UI with in-memory fakes, persisted
 // to localStorage so refresh/resume can be tested. This is NOT Supabase and never ships in a production build.
-import { FakeAccountApi, FakeAuthApi, FakeDatingApi, FakeDatingWorld, FakeSocialApi, FakeSocialWorld, type AuthUser } from '@lovoki/core';
+import { FakeAccountApi, FakeAuthApi, FakeDatingApi, FakeDatingWorld, FakeSocialApi, FakeSocialWorld, FAKE_PLACES, fakePlaceById, type AuthUser } from '@lovoki/core';
 import { RealAppView } from './RealApp';
 
 const KEY = 'lovoki.uitest.state';
@@ -26,7 +26,7 @@ seedWorld();
 // Dating: fictional adults for the dev harness only. Rita Test has already liked every new account, so a mutual match can be tried at once.
 const dworld = new FakeDatingWorld(world);
 const DSEED = { rita: '00000000-0000-4000-8000-0000000000d1' };
-const PLACES = [{ label: 'Lisbon, Portugal', lat: 38.72, lng: -9.14 }, { label: 'Sintra, Portugal', lat: 38.8, lng: -9.38 }, { label: 'Setubal, Portugal', lat: 38.52, lng: -8.89 }, { label: 'Porto, Portugal', lat: 41.15, lng: -8.61 }];
+const PLACES = FAKE_PLACES.slice(0, 4);
 const INTENTIONS = ['long-term', 'friends-first', 'figuring-out', 'short-term-open'];
 function seedDating() {
   world.users.set(DSEED.rita, { id: DSEED.rita, name: 'Rita Test', visibility: 'public', bio: 'Test person from the dev harness.', age: 29, completed: true });
@@ -76,7 +76,7 @@ function syncAccounts() {
     const a = f.account; if (!a.onboarding.completedAt) return;
     const u = world.users.get(id); if (u) { u.name = a.displayName || u.name; u.age = a.age ?? 30; u.visibility = a.socialVisibility; }
     dworld.setDating(id, { gender: a.gender, showGender: a.showGender, showDistance: a.showDistance, interestedIn: a.interestedIn, ageMin: a.ageMin, ageMax: a.ageMax, maxKm: a.maxDistanceKm,
-      discoverable: a.datingDiscoverable, place: a.place, intention: a.intention ?? 'long-term', interests: a.interests.map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-')), bio: a.bio, pronouns: a.pronouns,
+      discoverable: a.datingDiscoverable, place: fakePlaceById(a.place?.id ?? null), intention: a.intention ?? 'long-term', interests: a.interests.map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-')), bio: a.bio, pronouns: a.pronouns,
       filterIntentions: a.filterIntentions, filterInterests: a.filterInterests.map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-')) });
   });
 }

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import {
-  AccountFailure, STEPS, draftsFromAccount, isStep, missingRequired, resumeStep, stepIndex,
-  validateAbout, validateBasics, validatePreferences, validatePrivacy, type Drafts, type FieldErrors, type Step,
+  AccountFailure, STEPS, TERMS_VERSION, areaLabelOf, draftsFromAccount, isStep, missingRequired, resumeStep, stepIndex,
+  validateBasics, validatePreferences, validatePrivacy, type Drafts, type FieldErrors, type Step,
+  type Gender,
 } from '@lovoki/core';
 import { useAuth } from '../../auth/AuthProvider';
 import { useReadyAccount } from '../../account/AccountProvider';
-import { AboutFields, BasicsFields, PreferenceFields, PrivacyFields } from '../../components/profileFields';
+import { BasicsFields, PreferenceFields, PrivacyFields } from '../../components/profileFields';
 import { PhotoManager } from '../../components/PhotoManager';
 import { ProfilePreview } from '../../components/ProfilePreview';
 import { ModeBadge } from '../../components/ModeBadge';
@@ -16,12 +17,11 @@ import { focusFirstInvalid, useSubmit } from '../../ui/fields';
 import { useTitle } from '../../ui/useTitle';
 
 const COPY: Record<Step, { title: string; body: string }> = {
-  basics: { title: 'The basics', body: 'Your date of birth stays private. Other people only see your age.' },
-  about: { title: 'About you', body: 'Everything here is optional, but a few details make first conversations easier.' },
+  basics: { title: 'The basics', body: 'Pick a username and tell us who you are. Your date of birth stays private: other people only see your age.' },
   preferences: { title: 'Who you’d like to meet', body: 'This shapes who you see. Only adults can use LOVOKI, so every age range starts at 18.' },
   photos: { title: 'Add your photos', body: 'Add at least one clear photo of you. The first photo is your main one.' },
-  privacy: { title: 'Location and privacy', body: 'Choose where you are and who can see you. You can change this any time.' },
-  review: { title: 'Review your profile', body: 'This is how your profile will read to others.' },
+  privacy: { title: 'Place and privacy', body: 'Choose your city and who can see you. You can change this any time.' },
+  review: { title: 'Review your profile', body: 'This is how your profile will read to others. Everything else is optional and can wait.' },
 };
 
 export function OnboardingRedirect() {
@@ -37,6 +37,8 @@ export function Onboarding() {
   const { account, api, reload } = useReadyAccount();
   const { busy, run } = useSubmit();
   const [drafts, setDrafts] = useState<Drafts>(() => draftsFromAccount(account));
+  const [agree, setAgree] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [fail, setFail] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -49,22 +51,33 @@ export function Onboarding() {
   useEffect(() => { setErrors({}); setFail(null); heading.current?.focus({ preventScroll: true }); }, [step]);
   if (!valid) return <Navigate to={`/onboarding/${resume}`} replace />;
 
-  const validate = (s: Step): FieldErrors =>
-    s === 'basics' ? validateBasics(drafts.basics)
-    : s === 'about' ? validateAbout(drafts.about)
-    : s === 'preferences' ? validatePreferences(drafts.preferences)
-    : s === 'privacy' ? validatePrivacy(drafts.privacy)
-    : s === 'photos' ? (account.photos.length ? {} : { photos: 'Add at least one photo to continue.' }) : {};
+  const needsConsent = !account.consent;
+  const validate = (s: Step): FieldErrors => {
+    if (s === 'basics') { const e = validateBasics(drafts.basics); if (needsConsent && !agree) e.consent = 'Confirm you’re 18 or over and accept the terms to continue.'; return e; }
+    if (s === 'preferences') return validatePreferences(drafts.preferences);
+    if (s === 'privacy') return validatePrivacy(drafts.privacy);
+    if (s === 'photos') return account.photos.length ? {} : { photos: 'Add at least one photo to continue.' };
+    return {};
+  };
 
   const save = async (s: Step) => {
-    if (s === 'basics') await api.saveBasics(drafts.basics);
-    else if (s === 'about') await api.saveAbout(drafts.about);
-    else if (s === 'preferences') await api.savePreferences(drafts.preferences);
-    else if (s === 'privacy') await api.savePrivacy(drafts.privacy);
+    if (s === 'basics') {
+      const b = drafts.basics;
+      await api.saveBasics({ displayName: b.displayName, dateOfBirth: b.dateOfBirth, pronouns: b.pronouns });
+      await api.setUsername(b.username.trim().replace(/^@/, '').toLowerCase());
+      await api.saveDatingProfile({ gender: b.gender as Gender, genderCustom: b.gender === 'self-describe' ? b.genderCustom.trim() : null, showGender: account.showGender, showDistance: account.showDistance });
+      if (needsConsent) await api.recordConsent(TERMS_VERSION, marketing);
+    } else if (s === 'preferences') await api.savePreferences(drafts.preferences);
+    else if (s === 'privacy') {
+      const p = drafts.privacy.place!;
+      if (p.id !== null && p.id !== account.place?.id) await api.savePlace(p.id);
+      await api.savePrivacy({ areaLabel: areaLabelOf(p), socialVisibility: drafts.privacy.socialVisibility, datingDiscoverable: drafts.privacy.datingDiscoverable });
+    }
   };
   const handleFail = (e: unknown) => {
     const f = e instanceof AccountFailure ? e : null;
     if (f?.code === 'under_18') { setErrors({ dateOfBirth: f.message }); focusFirstInvalid(); return; }
+    if (f?.code === 'invalid' && /username/i.test(f.message)) { setErrors({ username: f.message }); focusFirstInvalid(); return; }
     setFail(f ? (f.code === 'network' ? `${f.message} Your answers are still here.` : f.message) : 'Something went wrong. Try again.');
   };
 
@@ -91,7 +104,7 @@ export function Onboarding() {
     <div className="onb">
       <header className="onb-top">
         <span className="wordmark" style={{ padding: 0 }}>LOVOKI</span><ModeBadge mode="supabase" /><span className="grow" />
-        <button className="btn btn-ghost btn-sm" onClick={() => void signOut()}>Log out</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => void signOut()}>Log out</button>
       </header>
       <nav aria-label="Setup progress" className="onb-steps">
         <p className="onb-count" aria-hidden>Step {idx + 1} of {STEPS.length}</p>
@@ -109,22 +122,22 @@ export function Onboarding() {
         <p className="muted" style={{ marginTop: 6 }}>{COPY[step].body}</p>
         <form className="stack" style={{ marginTop: 24, gap: 24 }} noValidate onSubmit={(e) => { e.preventDefault(); if (step === 'review') onComplete(); else onContinue(); }}>
           {fail && <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={step === 'review' ? onComplete : onContinue} disabled={busy}>Try again</button>}>{fail}</Notice>}
-          {step === 'basics' && <BasicsFields value={drafts.basics} onChange={(basics) => setDrafts({ ...drafts, basics })} errors={errors} />}
-          {step === 'about' && <AboutFields value={drafts.about} onChange={(about) => setDrafts({ ...drafts, about })} errors={errors} />}
+          {step === 'basics' && <BasicsFields value={drafts.basics} onChange={(basics) => setDrafts({ ...drafts, basics })} errors={errors} api={api} currentUsername={account.username}
+            consent={needsConsent ? { agree, marketing, onAgree: setAgree, onMarketing: setMarketing } : undefined} />}
           {step === 'preferences' && <PreferenceFields value={drafts.preferences} onChange={(preferences) => setDrafts({ ...drafts, preferences })} errors={errors} />}
           {step === 'photos' && <>
             <PhotoManager account={account} api={api} reload={reload} />
             <span className="field" data-invalid={!!errors.photos}><FieldError id="photos-err">{errors.photos}</FieldError></span></>}
-          {step === 'privacy' && <PrivacyFields value={drafts.privacy} onChange={(privacy) => setDrafts({ ...drafts, privacy })} errors={errors} />}
+          {step === 'privacy' && <PrivacyFields value={drafts.privacy} onChange={(privacy) => setDrafts({ ...drafts, privacy })} errors={errors} api={api} />}
           {step === 'review' && <>
             {missing.length > 0 && <Notice tone="warning">Still needed: {missing.map((m, i) => <span key={m.field}>{i > 0 && ', '}<Link to={`/onboarding/${m.step}`}>{m.label.toLowerCase()}</Link></span>)}.</Notice>}
             <ProfilePreview account={account} api={api} />
-            <Notice>Age is self-declared and not verified. Meeting real people isn’t live yet, so completing setup saves your profile and opens the app.</Notice></>}
+            <Notice>Age is self-declared and not verified. Bio, interests, prompts and the rest are optional: add them any time from your profile.</Notice></>}
           <div className="onb-nav">
             {idx > 0 ? <Link to={`/onboarding/${STEPS[idx - 1]!.id}`} className="btn btn-secondary">Back</Link> : <span />}
             {step === 'review'
-              ? <button className="btn btn-primary" disabled={busy || missing.length > 0}>{busy ? 'Finishing…' : 'Finish setup'}</button>
-              : <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Continue'}</button>}
+              ? <button type="submit" className="btn btn-primary" disabled={busy || missing.length > 0}>{busy ? 'Finishing…' : 'Finish setup'}</button>
+              : <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Continue'}</button>}
           </div>
         </form>
       </main>

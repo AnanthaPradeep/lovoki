@@ -9,7 +9,7 @@ import {
 const C = (n: number) => `2026-01-01T00:00:${String(n).padStart(2, '0')}.000000Z|aaaaaaaa-aaaa-4aaa-8aaa-${String(n).padStart(12, '0')}`;
 const post = (n: number, o: Partial<PostView> = {}): PostView => ({
   id: `p${n}`, authorId: 'a', authorName: 'A', authorPhotoPath: null, caption: 'c', audience: 'public', createdAt: '2026-01-01T00:00:00.000000Z', media: null,
-  likeCount: 2, commentCount: 0, likedByMe: false, savedByMe: false, isMine: false, cursor: C(n), ...o,
+  likeCount: 2, commentCount: 0, likedByMe: false, savedByMe: false, isMine: false, commentsAllowed: true, cursor: C(n), ...o,
 });
 const list = (...ps: PostView[]): ListState<PostView> => ({ items: ps, next: null, loaded: true });
 

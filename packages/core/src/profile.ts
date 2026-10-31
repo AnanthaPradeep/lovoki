@@ -77,6 +77,16 @@ export function describeDetails(d: VisibleDetails): { key: string; label: string
   return out;
 }
 
+/** Your own details in the shape other people receive, so one component can render both. */
+export function detailsToVisible(d: ProfileDetails): VisibleDetails {
+  const v: VisibleDetails = {};
+  if (d.instagramHandle) v.instagram_handle = d.instagramHandle; if (d.heightCm) v.height_cm = d.heightCm; if (d.jobTitle) v.job_title = d.jobTitle; if (d.companyOrSchool) v.company_or_school = d.companyOrSchool;
+  if (d.educationLevel) v.education_level = d.educationLevel; if (d.languages.length) v.languages = d.languages; if (d.drinking) v.drinking = d.drinking; if (d.smoking) v.smoking = d.smoking;
+  if (d.exercise) v.exercise = d.exercise; if (d.diet) v.diet = d.diet; if (d.pets.length) v.pets = d.pets; if (d.hasKids) v.has_kids = d.hasKids; if (d.wantsKids) v.wants_kids = d.wantsKids;
+  if (d.relationshipStructure) v.relationship_structure = d.relationshipStructure; if (d.religion) v.religion = d.religion;
+  return v;
+}
+
 export const DETAIL_LIMITS = { jobTitle: 60, company: 60, instagram: 30, heightMin: 120, heightMax: 230, languagesMax: 10, genderCustom: 30 } as const;
 
 // eslint-disable-next-line no-control-regex -- rejecting control characters is the purpose of this check

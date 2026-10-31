@@ -35,6 +35,8 @@ export function mapAuthError(e: unknown): AuthFailure {
   if (code === 'invalid_credentials' || /invalid login credentials/.test(msg)) return new AuthFailure('invalid_credentials', 'Email or password is incorrect.');
   if (code === 'email_not_confirmed' || /email not confirmed/.test(msg)) return new AuthFailure('email_not_confirmed', 'Confirm your email first. We can send the link again.');
   if (code === 'weak_password' || /password should be|weak password/.test(msg)) return new AuthFailure('weak_password', 'Choose a stronger password. Use at least 10 characters.');
+  if (code === 'captcha_failed' || /captcha/.test(msg)) return new AuthFailure('captcha', 'The check didn’t pass. Try again.');
+  if (code === 'reauthentication_needed' || code === 'reauthentication_not_valid') return new AuthFailure('recent_login_required', 'For your security, enter your current password to continue.');
   if (code === 'same_password') return new AuthFailure('same_password', 'Choose a password you haven’t used for this account.');
   if (code === 'user_already_exists' || code === 'email_exists' || /already registered/.test(msg)) return new AuthFailure('already_registered', 'That email can’t be used to create an account.');
   if (r.status === 429 || /rate limit|too many/.test(msg) || code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || code === 'over_sms_send_rate_limit')
@@ -49,7 +51,9 @@ export function mapAuthError(e: unknown): AuthFailure {
 }
 
 /* ---------- redirect safety ---------- */
-const ALLOWED = ['/discover', '/feed', '/connections', '/notifications', '/messages', '/me', '/settings', '/u', '/onboarding'];
+const ALLOWED = ['/discover', '/feed', '/connections', '/notifications', '/messages', '/me', '/settings', '/u', '/p', '/onboarding'];
+/** A profile address: /@handle. */
+const isHandlePath = (p: string) => /^\/@[a-z0-9._]{3,30}$/i.test(p);
 
 /** Returns an internal, known application path (with query) or the fallback. Never an external or unknown URL. */
 export function safeRedirect(next: string | null | undefined, fallback = '/discover'): string {
@@ -60,7 +64,7 @@ export function safeRedirect(next: string | null | undefined, fallback = '/disco
   try { u = new URL(next, 'http://lovoki.invalid'); } catch { return fallback; }
   if (u.origin !== 'http://lovoki.invalid') return fallback;
   const p = u.pathname;
-  return ALLOWED.some((a) => p === a || p.startsWith(a + '/')) ? p + u.search : fallback;
+  return ALLOWED.some((a) => p === a || p.startsWith(a + '/')) || isHandlePath(p) ? p + u.search : fallback;
 }
 
 /** Where an email link may send the person: the reset form, or any allowed app path. */
@@ -69,16 +73,17 @@ export function safeCallbackNext(next: string | null | undefined): string {
 }
 
 /* ---------- route guard (pure, so it is unit-testable) ---------- */
-export type RouteClass = 'root' | 'public-auth' | 'callback' | 'recovery' | 'onboarding' | 'app' | 'unknown';
+export type RouteClass = 'root' | 'public-auth' | 'callback' | 'recovery' | 'onboarding' | 'app' | 'static' | 'unknown';
 const PUBLIC_AUTH = ['/welcome', '/signup', '/login', '/forgot-password', '/check-email'];
 
 export function classifyPath(path: string): RouteClass {
   if (path === '/') return 'root';
+  if (path === '/terms' || path === '/privacy') return 'static';
   if (PUBLIC_AUTH.includes(path)) return 'public-auth';
   if (path === '/auth/callback') return 'callback';
   if (path === '/reset-password') return 'recovery';
   if (path === '/onboarding' || path.startsWith('/onboarding/')) return 'onboarding';
-  if (ALLOWED.some((a) => path === a || path.startsWith(a + '/'))) return 'app';
+  if (ALLOWED.some((a) => path === a || path.startsWith(a + '/')) || isHandlePath(path)) return 'app';
   return 'unknown';
 }
 
@@ -95,6 +100,7 @@ export type Decision = { kind: 'wait' } | { kind: 'allow' } | { kind: 'redirect'
 export function decideRoute(i: GuardInput): Decision {
   const cls = classifyPath(i.path);
   const go = (to: string): Decision => ({ kind: 'redirect', to });
+  if (cls === 'static') return { kind: 'allow' }; // the terms and privacy drafts are readable by anyone, signed in or not, in either mode
   if (i.mode === 'demo') return ['public-auth', 'callback', 'recovery', 'onboarding', 'root'].includes(cls) ? go('/discover') : { kind: 'allow' };
   if (cls === 'callback') return { kind: 'allow' };
   if (i.auth === 'loading') return { kind: 'wait' };

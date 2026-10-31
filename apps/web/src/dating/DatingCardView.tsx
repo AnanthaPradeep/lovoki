@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { MapPin, Sparkles } from 'lucide-react';
 import { INTENTION_LABEL, bucketLabel, genderLabel, type DatingCard, type Intention, type MediaRef } from '@lovoki/core';
 import { SocialImage } from '../social/parts';
+import { DetailList } from '../profile/parts';
 
 /** Which images a card needs, so a deck can resolve them in one batched call. */
 export const cardRefs = (c: DatingCard | undefined, all = true): MediaRef[] => (c ? c.photoPaths.slice(0, all ? 6 : 1).map((path) => ({ bucket: 'profile-photos' as const, path })) : []);
 
-type CardLike = Pick<DatingCard, 'userId' | 'displayName' | 'age' | 'gender' | 'areaLabel' | 'distanceBucket' | 'intention' | 'interests' | 'prompts' | 'photoPaths' | 'bio' | 'pronouns'>;
+type CardLike = Pick<DatingCard, 'userId' | 'displayName' | 'username' | 'age' | 'gender' | 'genderCustom' | 'areaLabel' | 'distanceBucket' | 'intention' | 'interests' | 'prompts' | 'photoPaths' | 'bio' | 'pronouns' | 'details'>;
 
 /**
  * One person as the dating audience sees them. Only fields the database chose to return are rendered: nothing here can
@@ -19,7 +20,7 @@ export function DatingCardView({ card: p, urls, settled, menu, children }: { car
   const prompt = p.prompts[0];
   const rest = p.prompts.slice(1);
   const dist = bucketLabel(p.distanceBucket);
-  const gender = genderLabel(p.gender);
+  const gender = genderLabel(p.gender, p.genderCustom);
   return (
     <article className="discover-card" aria-label={`${p.displayName}, ${p.age}`} data-testid="dating-card" data-user-id={p.userId}>
       <div className="dc-photo">
@@ -42,7 +43,9 @@ export function DatingCardView({ card: p, urls, settled, menu, children }: { car
           {gender && <span>{gender}</span>}
           {p.pronouns && <span data-testid="pronouns">{p.pronouns}</span>}
         </div>
+        {p.username && <p className="subtle" style={{ margin: 0 }}>@{p.username}</p>}
         {p.bio && <p className="break" style={{ margin: 0 }}>{p.bio}</p>}
+        <DetailList details={p.details} />
         <div className="chips">
           {p.intention && <span className="chip chip-dating">{INTENTION_LABEL[p.intention as Intention] ?? p.intention}</span>}
           {p.interests.map((i) => <span className="chip" key={i}>{i}</span>)}

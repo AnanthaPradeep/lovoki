@@ -99,7 +99,7 @@ export class FakeSocialApi implements SocialApi {
       createdAt: stamp(p.seq), media: p.media ? { path: `${p.authorId}/${p.id}/image.jpg`, contentType: 'image/jpeg' } : null,
       likeCount: this.count(w.likes, p.id),
       commentCount: w.comments.filter((c) => c.postId === p.id && !w.blockedBetween(this.me, c.authorId)).length,
-      likedByMe: w.likes.has(`${p.id}|${this.me}`), savedByMe: w.saves.has(`${p.id}|${this.me}`), isMine: p.authorId === this.me, cursor: cursorOf(p.seq, p.id),
+      likedByMe: w.likes.has(`${p.id}|${this.me}`), savedByMe: w.saves.has(`${p.id}|${this.me}`), isMine: p.authorId === this.me, commentsAllowed: true, cursor: cursorOf(p.seq, p.id),
     };
   }
   private page(rows: FPost[], cursor: string | null | undefined): Page<PostView> {
@@ -119,6 +119,15 @@ export class FakeSocialApi implements SocialApi {
     return this.page(rows, cursor);
   }
   async authorPosts(authorId: string, cursor?: string | null) { await this.gate('authorPosts'); return this.page(this.world.posts.filter((p) => p.authorId === authorId), cursor); }
+  async post(id: string) {
+    await this.gate('post'); const p = this.world.posts.find((x) => x.id === id);
+    return p && this.world.canView(this.me, p.authorId, p.audience) ? this.view(p) : null;
+  }
+  async resolveUsername(handle: string) {
+    await this.gate('resolveUsername'); const h = handle.toLowerCase();
+    const hit = [...this.world.users.values()].find((u) => u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.') === h || u.id === h);
+    return hit && hit.completed && !this.world.blockedBetween(this.me, hit.id) ? hit.id : null;
+  }
   async savedPosts(cursor?: string | null) { await this.gate('savedPosts'); return this.page(this.world.posts.filter((p) => this.world.saves.has(`${p.id}|${this.me}`)), cursor); }
   async createPost(i: { id: string; caption: string; audience: Audience; image: Blob | null }) {
     await this.gate('createPost');
@@ -230,7 +239,7 @@ export class FakeSocialApi implements SocialApi {
     const full = w.canView(this.me, userId, 'public');
     const acc = (pred: (a: string, b: string) => boolean) => [...w.follows].filter(([k, s]) => s === 'accepted' && pred(...(k.split('>') as [string, string]))).length;
     return {
-      userId, displayName: u.name, pronouns: full ? '' : null, bio: full ? u.bio : null, areaLabel: full ? 'Lisbon' : null, age: full ? u.age : null,
+      userId, username: u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.'), displayName: u.name, gender: null, genderCustom: null, avatarCrop: null, interests: [], prompts: [], details: {}, pronouns: full ? '' : null, bio: full ? u.bio : null, areaLabel: full ? 'Lisbon' : null, age: full ? u.age : null,
       photoPath: full ? `${userId}/avatar.jpg` : null, restricted: !full, isSelf: userId === this.me,
       followStatus: w.follows.get(key(this.me, userId)) ?? null, followsMeStatus: w.follows.get(key(userId, this.me)) ?? null,
       followerCount: full ? acc((_a, b) => b === userId) : null, followingCount: full ? acc((a) => a === userId) : null,

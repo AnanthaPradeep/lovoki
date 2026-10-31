@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AlertCircle, ImageOff, Loader2 } from 'lucide-react';
+import type { AvatarCrop } from '@lovoki/core';
 import { Notice } from '../ui';
 
 /** A private image at a fixed aspect ratio, so layout never jumps while it loads or if it fails. */
@@ -12,14 +13,18 @@ export function SocialImage({ url, settled, alt, className = 'ratio-45' }: { url
   return <div className={`photo ${className}`}><img src={url} alt={alt} draggable={false} loading="lazy" onError={() => setBroken(true)} /></div>;
 }
 
+/** CSS for a square crop of a photo: the centre and zoom the owner chose. */
+export const cropStyle = (c: AvatarCrop | null | undefined): React.CSSProperties =>
+  c ? { objectFit: 'cover', objectPosition: `${c.x * 100}% ${c.y * 100}%`, transform: `scale(${c.zoom})`, transformOrigin: `${c.x * 100}% ${c.y * 100}%` } : { objectFit: 'cover' };
+
 const initials = (name: string) => [...name.trim()].slice(0, 1).join('').toUpperCase() || '?';
 
 /** Round avatar: the person's main photo when it can be shown, otherwise their initial. Never a stranger's face. */
-export function PersonAvatar({ name, url, size = 40 }: { name: string; url?: string; size?: number }) {
+export function PersonAvatar({ name, url, size = 40, crop }: { name: string; url?: string; size?: number; crop?: AvatarCrop | null }) {
   const [broken, setBroken] = useState(false);
   return (
     <div className="avatar" style={{ width: size, height: size, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: size * 0.4 }} aria-hidden>
-      {url && !broken ? <img src={url} alt="" draggable={false} onError={() => setBroken(true)} /> : <span>{initials(name)}</span>}
+      {url && !broken ? <img src={url} alt="" draggable={false} style={{ width: '100%', height: '100%', ...cropStyle(crop) }} onError={() => setBroken(true)} /> : <span>{initials(name)}</span>}
     </div>
   );
 }

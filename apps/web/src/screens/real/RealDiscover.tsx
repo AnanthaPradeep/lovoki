@@ -103,8 +103,9 @@ export function RealDiscover() {
 
   // 18 to 60 is what onboarding saves and 18 to 99 is "anyone": neither counts as an active age filter.
   const defaultAge = account.ageMin === 18 && (account.ageMax === 60 || account.ageMax === 99);
-  const hasFilters = account.filterIntentions.length > 0 || account.filterInterests.length > 0 || account.maxDistanceKm !== null || !defaultAge;
-  const activeCount = (account.filterIntentions.length ? 1 : 0) + (account.filterInterests.length ? 1 : 0) + (account.maxDistanceKm !== null ? 1 : 0) + (!defaultAge ? 1 : 0);
+  const hasFilters = account.filterIntentions.length > 0 || account.filterInterests.length > 0 || account.maxDistanceKm !== null || !defaultAge || account.filterHeightMin !== null || account.filterHeightMax !== null || account.filterDrinking.length > 0 || account.filterSmoking.length > 0 || account.filterKids.length > 0;
+  const extra = account.filterHeightMin !== null || account.filterHeightMax !== null || account.filterDrinking.length > 0 || account.filterSmoking.length > 0 || account.filterKids.length > 0;
+  const activeCount = (account.filterIntentions.length ? 1 : 0) + (account.filterInterests.length ? 1 : 0) + (account.maxDistanceKm !== null ? 1 : 0) + (!defaultAge ? 1 : 0) + (extra ? 1 : 0);
   const empty = emptyReason(status, hasFilters);
 
   return (

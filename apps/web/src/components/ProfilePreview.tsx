@@ -1,5 +1,6 @@
 import { MapPin } from 'lucide-react';
-import { INTENTION_LABEL, type Account, type AccountApi } from '@lovoki/core';
+import { INTENTION_LABEL, detailsToVisible, genderLabel, type Account, type AccountApi } from '@lovoki/core';
+import { DetailList } from '../profile/parts';
 import { SignedPhoto } from '../ui/fields';
 
 /** How the profile reads to someone else. Uses age, never date of birth. */
@@ -14,11 +15,14 @@ export function ProfilePreview({ account, api }: { account: Account; api: Accoun
       {prompt && <div className="dc-note"><div className="q">{prompt.question}</div><blockquote>{prompt.answer}</blockquote></div>}
       <div className="dc-body">
         <h2 className="dc-name">{account.displayName || 'Your name'}{account.age !== null && <span className="age">, {account.age}</span>}</h2>
+        {account.username && <p className="subtle" style={{ margin: 0 }}>@{account.username}</p>}
         <div className="dc-meta">
           {account.areaLabel && <span><MapPin size={16} aria-hidden /><span className="break">{account.areaLabel}</span></span>}
           {account.pronouns && <span>{account.pronouns}</span>}
+          {account.showGender && account.gender && <span>{genderLabel(account.gender, account.genderCustom)}</span>}
         </div>
         {account.bio && <p className="break">{account.bio}</p>}
+        <DetailList details={detailsToVisible({ ...account.details, religion: null })} />
         <div className="chips">
           {account.intention && <span className="chip chip-dating">{INTENTION_LABEL[account.intention]}</span>}
           {account.interests.map((i) => <span key={i} className="chip">{i}</span>)}

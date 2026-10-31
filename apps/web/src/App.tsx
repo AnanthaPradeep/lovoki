@@ -14,6 +14,7 @@ import { Me, EditProfile } from './screens/Me';
 import { Settings } from './screens/Settings';
 import { NotFound } from './screens/NotFound';
 import { Navigate } from 'react-router-dom';
+import { Privacy, Terms } from './screens/Legal';
 
 /** Demo mode: the Phase 1 experience on local synthetic data. Never touches Supabase or real accounts. */
 export function DemoApp() {
@@ -26,6 +27,8 @@ export function DemoApp() {
       {!hydrated ? <div className="page stack" aria-busy="true"><div className="skeleton" style={{ height: 32, width: 180 }} /><div className="skeleton" style={{ aspectRatio: '4/5', borderRadius: 22 }} /></div> : (
         <Routes>
           <Route path="/" element={<Navigate to="/discover" replace />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/discover" element={<Discover />} />
           <Route path="/u/:id" element={<ProfileDetail />} />
           <Route path="/feed" element={<Feed />} />

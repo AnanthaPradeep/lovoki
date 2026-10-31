@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ALL_INTENTIONS, ALL_INTERESTS, DatingFailure, INTENTION_LABEL, validatePreferences, type DatingCard, type Intention, type MediaRef, type PreferencesInput,
+  ALL_INTENTIONS, ALL_INTERESTS, DRINKING, DatingFailure, DETAIL_LIMITS, INTENTION_LABEL, SMOKING, WANTS_KIDS, accountFilters, noFilters, validatePreferences,
+  type DatingCard, type DatingFilters, type Intention, type MediaRef, type PreferencesInput,
 } from '@lovoki/core';
 import { Dialog, Notice, useToast } from '../ui';
 import { useReadyAccount } from '../account/AccountProvider';
@@ -41,13 +42,15 @@ export function FiltersDialog({ open, onClose, hasPlace, onSaved }: { open: bool
   const toast = useToast();
   const [age, setAge] = useState({ min: account.ageMin, max: account.ageMax });
   const [km, setKm] = useState<number | null>(account.maxDistanceKm);
-  const [intentions, setIntentions] = useState<string[]>(account.filterIntentions);
-  const [interests, setInterests] = useState<string[]>(account.filterInterests);
+  const [soft, setSoft] = useState<DatingFilters>(() => accountFilters(account));
+  const intentions = soft.intentions, interests = soft.interests;
+  const setIntentions = (v: string[]) => setSoft((f) => ({ ...f, intentions: v }));
+  const setInterests = (v: string[]) => setSoft((f) => ({ ...f, interests: v }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
-    setAge({ min: account.ageMin, max: account.ageMax }); setKm(account.maxDistanceKm); setIntentions(account.filterIntentions); setInterests(account.filterInterests); setErr(null);
+    setAge({ min: account.ageMin, max: account.ageMax }); setKm(account.maxDistanceKm); setSoft(accountFilters(account)); setErr(null);
   }, [open, account]);
 
   const save = async () => {
@@ -58,13 +61,14 @@ export function FiltersDialog({ open, onClose, hasPlace, onSaved }: { open: bool
     setBusy(true); setErr(null);
     try {
       await api.savePreferences(prefs);
-      await api.saveFilters({ intentions, interests });
+      await api.saveFilters(soft);
       await reload(); onSaved(); onClose();
       toast({ text: 'Filters saved.' });
     } catch (e) { setErr(e instanceof DatingFailure || e instanceof Error ? e.message : 'Couldn’t save your filters.'); }
     finally { setBusy(false); }
   };
-  const reset = () => { setAge({ min: 18, max: 99 }); setKm(null); setIntentions([]); setInterests([]); };
+  const reset = () => { setAge({ min: 18, max: 99 }); setKm(null); setSoft(noFilters()); };
+  const num = (v: string) => (v === '' ? null : Number(v));
 
   return (
     <Dialog open={open} onClose={onClose} title="Filters"
@@ -97,6 +101,20 @@ export function FiltersDialog({ open, onClose, hasPlace, onSaved }: { open: bool
           <button type="button" key={i} className="chip chip-toggle" aria-pressed={interests.includes(i)} disabled={!interests.includes(i) && interests.length >= 8}
             onClick={() => setInterests(toggle(interests, i))}>{i}</button>))}</div>
       </div>
+      <div className="field">
+        <span className="label" id="f-h">Height <span className="subtle">(cm, optional)</span></span>
+        <div className="range-row" role="group" aria-labelledby="f-h">
+          <label><span className="sr-only">Minimum height</span><input className="input" type="number" inputMode="numeric" min={DETAIL_LIMITS.heightMin} max={DETAIL_LIMITS.heightMax} value={soft.heightMin ?? ''} onChange={(e) => setSoft({ ...soft, heightMin: num(e.target.value) })} /></label>
+          <label><span className="sr-only">Maximum height</span><input className="input" type="number" inputMode="numeric" min={DETAIL_LIMITS.heightMin} max={DETAIL_LIMITS.heightMax} value={soft.heightMax ?? ''} onChange={(e) => setSoft({ ...soft, heightMax: num(e.target.value) })} /></label>
+        </div>
+        <span className="hint">These filters only shape your own list. They match people who chose to show you that detail, and nobody can see that you used them.</span>
+      </div>
+      <div className="field"><span className="label" id="f-dr">Drinking</span><div className="chips" role="group" aria-labelledby="f-dr">{DRINKING.map((o) => (
+        <button type="button" key={o.id} className="chip chip-toggle" aria-pressed={soft.drinking.includes(o.id)} onClick={() => setSoft({ ...soft, drinking: toggle(soft.drinking, o.id) })}>{o.label}</button>))}</div></div>
+      <div className="field"><span className="label" id="f-sm">Smoking</span><div className="chips" role="group" aria-labelledby="f-sm">{SMOKING.map((o) => (
+        <button type="button" key={o.id} className="chip chip-toggle" aria-pressed={soft.smoking.includes(o.id)} onClick={() => setSoft({ ...soft, smoking: toggle(soft.smoking, o.id) })}>{o.label}</button>))}</div></div>
+      <div className="field"><span className="label" id="f-kd">Kids</span><div className="chips" role="group" aria-labelledby="f-kd">{WANTS_KIDS.map((o) => (
+        <button type="button" key={o.id} className="chip chip-toggle" aria-pressed={soft.kids.includes(o.id)} onClick={() => setSoft({ ...soft, kids: toggle(soft.kids, o.id) })}>{o.label}</button>))}</div></div>
       {err && <Notice tone="error">{err}</Notice>}
     </Dialog>
   );

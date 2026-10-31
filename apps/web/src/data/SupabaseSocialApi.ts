@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  SOCIAL_RULES, SocialFailure, extForType, safeCursor, sniffImageType, takePage, validateCaption, validateComment, validateReport, validateStoredPhoto,
+  SOCIAL_RULES, SocialFailure, interestLabel, type AvatarCrop, type VisibleDetails, extForType, safeCursor, sniffImageType, takePage, validateCaption, validateComment, validateReport, validateStoredPhoto,
   type Audience, type BlockedPerson, type CommentView, type FeedKind, type FollowStatus, type MediaRef, type NotificationType,
   type NotificationView, type Page, type PeopleKind, type PersonRow, type PostView, type ReportReason, type ReportTarget, type SocialApi,
   type SocialCounts, type SocialProfileView, type UserScope,
@@ -21,6 +21,7 @@ export function toSocialFailure(e: unknown): SocialFailure {
   if (m.includes('LOVOKI_RATE_LIMITED')) return new SocialFailure('rate_limited', 'You’ve sent a lot of reports recently. Try again in a while.');
   if (m.includes('LOVOKI_INVALID_CURSOR')) return new SocialFailure('invalid_cursor', 'That list is out of date. Reload to continue.');
   if (m.includes('LOVOKI_ONBOARDING_INCOMPLETE')) return new SocialFailure('incomplete', 'Finish setting up your profile first.');
+  if (m.includes('LOVOKI_COMMENTS_OFF')) return new SocialFailure('invalid', 'The author has turned comments off for you.');
   if (m.includes('LOVOKI_PHOTO_MISSING')) return new SocialFailure('invalid', 'The image upload didn’t finish. Try again.');
   if (m.includes('LOVOKI_UNAUTHENTICATED') || r.status === 401 || r.code === 'PGRST301' || /jwt/i.test(m)) return new SocialFailure('unauthorized', 'Your session ended. Log in again.');
   if (m.includes('LOVOKI_INVALID') || /^2[23]/.test(r.code ?? '')) return new SocialFailure('invalid', 'That isn’t valid. Check it and try again.');
@@ -51,7 +52,7 @@ export class SupabaseSocialApi implements SocialApi {
   private toPost = (r: Row<'feed_page'>): PostView => ({
     id: r.post_id, authorId: r.author_id, authorName: r.author_name ?? 'Someone', authorPhotoPath: r.author_photo_path ?? null, caption: r.caption,
     audience: r.audience as Audience, createdAt: r.created_at, media: r.media_path ? { path: r.media_path, contentType: r.media_type } : null,
-    likeCount: r.like_count, commentCount: r.comment_count, likedByMe: r.liked_by_me, savedByMe: r.saved_by_me, isMine: r.is_mine, cursor: r.page_cursor,
+    likeCount: r.like_count, commentCount: r.comment_count, likedByMe: r.liked_by_me, savedByMe: r.saved_by_me, isMine: r.is_mine, commentsAllowed: r.comments_allowed, cursor: r.page_cursor,
   });
 
   async feed(kind: FeedKind, cursor?: string | null): Promise<Page<PostView>> {
@@ -61,6 +62,11 @@ export class SupabaseSocialApi implements SocialApi {
   async authorPosts(authorId: string, cursor?: string | null) {
     return takePage((await this.rpc('profile_posts_page', { p_author: authorId, p_limit: SOCIAL_RULES.pageSize, p_cursor: this.cursor(cursor) })).map(this.toPost));
   }
+  async post(id: string): Promise<PostView | null> {
+    const r = (await this.rpc('post_page', { p_post: id }))[0];
+    return r ? this.toPost(r as Row<'feed_page'>) : null;
+  }
+  async resolveUsername(handle: string) { return ((await this.rpc('resolve_username', { p_handle: handle })) as string | null) ?? null; }
   async savedPosts(cursor?: string | null) {
     return takePage((await this.rpc('saved_posts_page', { p_limit: SOCIAL_RULES.pageSize, p_cursor: this.cursor(cursor) })).map(this.toPost));
   }
@@ -126,7 +132,9 @@ export class SupabaseSocialApi implements SocialApi {
     const r = (await this.rpc('social_profile', { p_user: userId }))[0];
     if (!r) return null;
     return {
-      userId: r.user_id, displayName: r.display_name ?? 'Someone', pronouns: r.pronouns ?? null, bio: r.bio ?? null, areaLabel: r.area_label ?? null, age: r.age ?? null,
+      userId: r.user_id, username: r.username ?? null, displayName: r.display_name ?? 'Someone', gender: r.gender ?? null, genderCustom: r.gender_custom ?? null,
+      avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, interests: (r.interests ?? []).map((x: string) => interestLabel(x) ?? x), prompts: (Array.isArray(r.prompts) ? r.prompts : []) as { question: string; answer: string }[],
+      details: (r.details ?? {}) as VisibleDetails, pronouns: r.pronouns ?? null, bio: r.bio ?? null, areaLabel: r.area_label ?? null, age: r.age ?? null,
       photoPath: r.photo_path ?? null, restricted: r.restricted, isSelf: r.is_self, followStatus: (r.follow_status ?? null) as FollowStatus | null,
       followsMeStatus: (r.follows_me_status ?? null) as FollowStatus | null, followerCount: r.follower_count ?? null, followingCount: r.following_count ?? null, postCount: r.post_count ?? null,
     };

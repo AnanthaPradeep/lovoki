@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   DATING_LIMITS, DatingFailure, interestLabel, isBucket, safeDiscoverCursor, safeCursor, takePage,
-  type DatingApi, type DatingCard, type DatingProfileView, type DatingStatus, type Gender, type LikeResult, type MatchView, type Page,
+  type AvatarCrop, type VisibleDetails, type DatingApi, type DatingCard, type DatingProfileView, type DatingStatus, type Gender, type LikeResult, type MatchView, type Page,
 } from '@lovoki/core';
 import type { Database } from './database.types';
 
@@ -27,13 +27,14 @@ export function toDatingFailure(e: unknown): DatingFailure {
   return new DatingFailure('unknown', 'Something went wrong. Try again.');
 }
 
-type CardRow = { user_id: string; display_name: string | null; age: number | null; gender: string | null; area_label: string | null; distance_bucket: string | null; intention: string | null;
+type CardRow = { user_id: string; display_name: string | null; username?: string | null; gender_custom?: string | null; avatar_path?: string | null; avatar_crop?: unknown; details?: unknown; age: number | null; gender: string | null; area_label: string | null; distance_bucket: string | null; intention: string | null;
   interests: string[] | null; prompts: unknown; photo_paths: string[] | null; bio: string | null; pronouns?: string | null };
 
 function toCard(r: CardRow, cursor: string): DatingCard {
   const prompts = Array.isArray(r.prompts) ? (r.prompts as { question?: string; answer?: string }[]).map((p) => ({ question: p.question ?? '', answer: p.answer ?? '' })) : [];
   return {
-    id: r.user_id, userId: r.user_id, displayName: r.display_name ?? 'Someone', age: r.age ?? 18, gender: (r.gender ?? null) as Gender | null, areaLabel: r.area_label ?? '',
+    id: r.user_id, userId: r.user_id, displayName: r.display_name ?? 'Someone', username: r.username ?? null, age: r.age ?? 18, gender: (r.gender ?? null) as Gender | null, genderCustom: r.gender_custom ?? null, areaLabel: r.area_label ?? '',
+    avatarPath: r.avatar_path ?? null, avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, details: (r.details ?? {}) as VisibleDetails,
     distanceBucket: isBucket(r.distance_bucket) ? r.distance_bucket : null, intention: r.intention ?? '',
     interests: (r.interests ?? []).map((s) => interestLabel(s) ?? s), prompts, photoPaths: r.photo_paths ?? [], bio: r.bio ?? '', pronouns: r.pronouns ?? null, cursor,
   };

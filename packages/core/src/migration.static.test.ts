@@ -56,8 +56,8 @@ describe('migration text', () => {
   });
   it('Phase 3.5: the optional-field table has no column for anything we promised never to collect', () => {
     const p35 = readFileSync(dir + '20261104000000_phase35_identity_profile.sql', 'utf8').replace(/--.*$/gm, '');
-    const table = /create table public\.profile_details \(([\s\S]*?)
-\);/.exec(p35)![1]!;
+    const start = p35.indexOf('create table public.profile_details (');
+    const table = p35.slice(start, p35.indexOf(');', start));
     expect(table).not.toMatch(/caste|income|worth|address|gps|government|passport|aadhaar|ssn|health|sexual|immigration|biometric|face|fingerprint/i);
   });
   it('Phase 4: the named limits live in exactly one function each', () => {

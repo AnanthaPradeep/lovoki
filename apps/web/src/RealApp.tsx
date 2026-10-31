@@ -31,10 +31,21 @@ import { Unavailable } from './screens/real/Unavailable';
 import { RealFeed } from './screens/real/RealFeed';
 import { RealConnections } from './screens/real/RealConnections';
 import { RealNotifications } from './screens/real/RealNotifications';
-import { RealProfile } from './screens/real/RealProfile';
+import { RealProfile, RealProfileByHandle } from './screens/real/RealProfile';
+import { RealPost } from './screens/real/RealPost';
+import { Privacy, Terms } from './screens/Legal';
+import { handleFromPath } from '@lovoki/core';
+import { useParams } from 'react-router-dom';
 import { RealDiscover } from './screens/real/RealDiscover';
 import { RealDatingProfile } from './screens/real/RealDatingProfile';
 import { NotFound } from './screens/NotFound';
+
+/** /@handle shows that person's profile. Any other single segment is an unknown page. */
+function HandleRoute() {
+  const { segment = '' } = useParams();
+  const h = handleFromPath(segment);
+  return h ? <RealProfileByHandle handle={h} /> : <NotFound />;
+}
 
 function AppShell() {
   const { signOut } = useAuth();
@@ -64,12 +75,15 @@ export function RealAppView({ authApi, make, makeSocial, makeDating }: { authApi
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/onboarding" element={<OnboardingRedirect />} />
             <Route path="/onboarding/:step" element={<Onboarding />} />
             <Route element={<AppShell />}>
               <Route path="/discover" element={<RealDiscover />} />
               <Route path="/discover/:id" element={<RealDatingProfile />} />
               <Route path="/u/:id" element={<RealProfile />} />
+              <Route path="/p/:id" element={<RealPost />} />
               <Route path="/feed" element={<RealFeed />} />
               <Route path="/connections" element={<RealConnections />} />
               <Route path="/notifications" element={<RealNotifications />} />
@@ -78,6 +92,7 @@ export function RealAppView({ authApi, make, makeSocial, makeDating }: { authApi
               <Route path="/me" element={<RealMe />} />
               <Route path="/me/edit" element={<RealEditProfile />} />
               <Route path="/settings" element={<RealSettings />} />
+              <Route path="/:segment" element={<HandleRoute />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

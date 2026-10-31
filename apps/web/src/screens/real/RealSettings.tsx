@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Monitor, Moon, Sun, LogOut } from 'lucide-react';
 import { AccountFailure, SocialFailure, type BlockedPerson, type ThemePreference } from '@lovoki/core';
 import { useSocial } from '../../social/SocialProvider';
 import { LoadError } from '../../social/parts';
 import { DatingSettings } from '../../dating/DatingSettings';
+import { AccountSecurity } from '../../profile/AccountSecurity';
 import { useAuth } from '../../auth/AuthProvider';
 import { useReadyAccount } from '../../account/AccountProvider';
 import { themeStore, useThemePref } from '../../ui-prefs';
@@ -31,6 +32,14 @@ export function RealSettings() {
       toast({ text: 'Privacy settings saved.' });
     } catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
   });
+  const saveSocial = (patch: Partial<{ allowComments: 'everyone' | 'followers' | 'nobody'; showFollowerCounts: boolean }>) => run(async () => {
+    try { await api.saveSocialSettings({ allowComments: account.allowComments, showFollowerCounts: account.showFollowerCounts, ...patch }); await reload(); toast({ text: 'Saved.' }); }
+    catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
+  });
+  const saveMarketing = (on: boolean) => run(async () => {
+    try { await api.setMarketingConsent(on); await reload(); toast({ text: on ? 'You’ll get product news by email.' : 'No product emails. Account emails (confirmations, resets) still arrive.' }); }
+    catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
+  });
   const logout = async () => { await signOut(); nav('/welcome', { replace: true }); };
 
   return (
@@ -52,8 +61,23 @@ export function RealSettings() {
             </div></div>
         </div>
       </section>
+      <section className="card card-pad" aria-labelledby="social"><h2 id="social" style={{ marginBottom: 8 }}>Posts and followers</h2>
+        <div className="settings-group">
+          <div className="switch-row"><label htmlFor="allow-comments" className="grow"><b>Who can comment on your posts</b><br /><span className="subtle">You can always comment on your own posts and delete any comment on them.</span></label>
+            <select id="allow-comments" className="select" style={{ width: 'auto' }} value={account.allowComments} disabled={busy} onChange={(e) => void saveSocial({ allowComments: e.target.value as 'everyone' | 'followers' | 'nobody' })}>
+              <option value="everyone">Everyone who can see them</option><option value="followers">Only my followers</option><option value="nobody">Nobody</option></select></div>
+          <label className="switch-row"><span className="grow"><b>Show follower and following counts</b><br /><span className="subtle">You always see your own counts.</span></span>
+            <input type="checkbox" className="switch" checked={account.showFollowerCounts} disabled={busy} onChange={(e) => void saveSocial({ showFollowerCounts: e.target.checked })} /></label>
+        </div>
+      </section>
       <DatingSettings />
       <BlockedAccounts />
+      <AccountSecurity />
+      <section className="card card-pad stack" aria-labelledby="consent-h"><h2 id="consent-h">Terms and email</h2>
+        <p className="muted">You accepted version <code>{account.consent?.termsVersion ?? 'none'}</code> of the <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy Policy</Link> (both drafts).</p>
+        <label className="switch-row"><span className="grow"><b>Product news by email</b><br /><span className="subtle">Off unless you turn it on. Confirmation and password emails aren’t affected.</span></span>
+          <input type="checkbox" className="switch" checked={account.consent?.marketing ?? false} disabled={busy || !account.consent} onChange={(e) => void saveMarketing(e.target.checked)} /></label>
+      </section>
       <section className="card card-pad stack" aria-labelledby="account"><h2 id="account">Account</h2>
         <p className="muted">Signed in as <b className="break">{account.email}</b></p>
         <button className="btn btn-secondary" style={{ justifySelf: 'start' }} onClick={() => void logout()}><LogOut size={18} aria-hidden />Log out</button>

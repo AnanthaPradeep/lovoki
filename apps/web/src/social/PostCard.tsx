@@ -184,7 +184,8 @@ function Comments({ post, dispatch }: { post: PostView; dispatch: (a: PostAction
         </div>
       ))}
       <LoadMore visible={!!list.next} state={list.more} error={list.error} onMore={list.loadMore} />
-      <form className="comment-form" onSubmit={(e) => void send(e)} noValidate>
+      {!post.commentsAllowed ? <p className="subtle" data-testid="comments-off">{post.isMine ? '' : 'The author limits who can comment on this post.'}</p> : (
+      <><form className="comment-form" onSubmit={(e) => void send(e)} noValidate>
         <label className="sr-only" htmlFor={`cmt-${post.id}`}>Add a comment</label>
         <input id={`cmt-${post.id}`} className="input" value={draft} onChange={(e) => { setDraft(e.target.value); setErr(null); }} placeholder="Add a comment" autoComplete="off" aria-invalid={!!err} />
         <button type="submit" className="btn btn-primary" disabled={sending || !draft.trim() || charCount(draft.trim()) > SOCIAL_RULES.commentMax} aria-label="Post comment"><Send size={16} aria-hidden />Post</button>
@@ -192,7 +193,7 @@ function Comments({ post, dispatch }: { post: PostView; dispatch: (a: PostAction
       <div className="row" style={{ justifyContent: 'space-between' }}>
         {err ? <p className="field-error" role="alert">{err}</p> : <span />}
         <Counter value={charCount(draft)} max={SOCIAL_RULES.commentMax} />
-      </div>
+      </div></>)}
       {reporting && <ReportDialog open onClose={() => setReporting(null)} target="comment" targetId={reporting} subject="comment" />}
     </div>
   );

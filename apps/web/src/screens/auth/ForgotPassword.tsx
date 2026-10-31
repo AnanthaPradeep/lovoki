@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { mapAuthError, validateEmail } from '@lovoki/core';
 import { useAuth } from '../../auth/AuthProvider';
+import { useCaptcha } from '../../auth/Captcha';
 import { Notice } from '../../ui';
 import { TextField, focusFirstInvalid, useCooldown, useSubmit } from '../../ui/fields';
 import { AuthLayout } from './AuthLayout';
@@ -11,6 +12,7 @@ export function ForgotPassword() {
   const [params] = useSearchParams();
   const { busy, run } = useSubmit();
   const { left, start } = useCooldown('lovoki.user.reset-until', 60);
+  const captcha = useCaptcha();
   const [email, setEmail] = useState('');
   const [err, setErr] = useState<string | undefined>();
   const [fail, setFail] = useState<string | null>(null);
@@ -22,7 +24,8 @@ export function ForgotPassword() {
     setErr(bad); setFail(null);
     if (bad) { focusFirstInvalid(); return; }
     if (left > 0) return;
-    void run(async () => { try { await api.requestPasswordReset(email); setSent(true); start(); } catch (e2) { setFail(mapAuthError(e2).message); } });
+    if (captcha.enabled && !captcha.token) { setFail('Complete the security check.'); return; }
+    void run(async () => { try { await api.requestPasswordReset(email, captcha.token ?? undefined); setSent(true); start(); } catch (e2) { setFail(mapAuthError(e2).message); } finally { captcha.reset(); } });
   };
 
   return (
@@ -33,6 +36,7 @@ export function ForgotPassword() {
         {sent && <Notice tone="success">If there’s an account for that email, a reset link is on its way. It works in this browser and expires after a short time.</Notice>}
         {fail && <Notice tone="error">{fail}</Notice>}
         <TextField id="email" name="email" label="Email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} error={err} />
+        {captcha.element}
         <button className="btn btn-primary btn-block" disabled={busy || left > 0}>{busy ? 'Sending…' : left > 0 ? `Send again in ${left}s` : sent ? 'Send another link' : 'Send reset link'}</button>
       </form>
     </AuthLayout>
