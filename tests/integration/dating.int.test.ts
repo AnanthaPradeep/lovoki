@@ -215,7 +215,8 @@ describe('likes and matches', () => {
     await Promise.all([likeRes(A, B), likeRes(A, B), likeRes(A, B)]);
     expect(must(await admin.from('dating_actions').select('*').eq('actor_id', A.id).eq('target_id', B.id))).toHaveLength(1);
     const res = await Promise.all([likeRes(B, A), likeRes(B, A), likeRes(A, B)]);
-    expect(res.every((r) => r.matched)).toBe(true); expect(await matchRows(A, B)).toHaveLength(1);
+    expect(res.some((r) => r.matched), 'a call that ran after the reverse like sees the match').toBe(true); expect(await matchRows(A, B)).toHaveLength(1);
+    expect((await likeRes(A, B)).matched, 'and every later call does').toBe(true);
   });
   it('liking an ineligible, hidden or unknown person looks exactly like liking an eligible one', async () => {
     const V = await datingUser('nrV', { gender: 'woman', interestedIn: ['men'] });
@@ -236,7 +237,7 @@ describe('likes and matches', () => {
     }
     const seen = [await discover(A), (await rpc<Card[]>(A, 'dating_profile', { p_user: B.id })), await matchesOf(A), await rpc(A, 'notifications_page', { p_limit: 20 }), await rpc(A, 'dating_status')];
     expect(forbidden(seen), 'no forbidden key anywhere').toEqual([]);
-    const text = JSON.stringify(seen); expect(text).not.toMatch(/liked/i);
+    expect([...keysOf(seen)].filter((k) => /like/i.test(k) && k !== 'likes_left'), 'no key anywhere mentions likes, except your own remaining count (likes_left)').toEqual([]); // keys, not values: other people's display names may contain any word
     expect(must(await admin.from('notifications').select('id').eq('recipient_id', A.id)), 'no notification for a like').toHaveLength(0);
     // ordering is not engagement-based: B (who likes A) is not pushed to the top of A's queue by that fact; the order is the per-day hash.
     const cohort = await discoverAll(A); const key = (id: string) => cohort.findIndex((c) => c.user_id === id); expect(key(B.id)).toBeGreaterThanOrEqual(0);

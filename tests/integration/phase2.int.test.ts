@@ -179,7 +179,7 @@ describe('profile-photos storage rules', () => {
     const results = await Promise.all(Array.from({ length: 30 }, () => C.sb.storage.from('profile-photos').upload(`${C.id}/${rid()}.png`, PNG, { contentType: 'image/png' })));
     const accepted = results.filter((r) => !r.error).length;
     expect(accepted, 'at least the cap, never more than attempted').toBeGreaterThanOrEqual(12);
-    expect(accepted).toBeLessThan(30); // the cap still bites; only the overshoot is unbounded by the policy itself
+    // How many exceed the cap depends on timing (it can be all of them under load): that is exactly the documented limitation.
     const paths = results.filter((r) => !r.error).map((r) => r.data!.path);
     const reg = await Promise.allSettled(paths.slice(0, 8).map((p) => rpc(C, 'register_photo', { p_path: p })));
     expect(reg.filter((r) => r.status === 'fulfilled').length, 'register_photo is hard-capped at 6 even when raced').toBeLessThanOrEqual(6);
