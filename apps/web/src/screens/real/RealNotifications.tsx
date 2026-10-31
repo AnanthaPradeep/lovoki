@@ -62,8 +62,8 @@ export function RealNotifications() {
                 <div className="grow" style={{ minWidth: 0 }}>
                   <p className="break" style={{ margin: 0 }}>
                     {wasUnread.has(n.id) && <span className="chip chip-demo" style={{ marginRight: 8 }}>New</span>}
-                    <Link to={`/u/${n.actorId}`} className="name">{n.actorName}</Link>{' '}
-                    <span>{notificationText(n).slice(n.actorName.length).trimStart()}</span>
+                    {n.type === 'match' ? <span>You matched with <b>{n.actorName}</b></span> : <><Link to={`/u/${n.actorId}`} className="name">{n.actorName}</Link>{' '}
+                    <span>{notificationText(n).slice(n.actorName.length).trimStart()}</span></>}
                   </p>
                   <span className="subtle">{postedAgo(n.createdAt)}</span>
                 </div>
@@ -74,6 +74,7 @@ export function RealNotifications() {
                   </div>
                 )}
                 {(n.type === 'like' || n.type === 'comment') && <Link to="/me" className="btn btn-ghost btn-sm">View your posts</Link>}
+                {n.type === 'match' && <Link to="/connections?tab=matches" className="btn btn-secondary btn-sm">See your matches</Link>}
               </li>
             ))}
           </ul>

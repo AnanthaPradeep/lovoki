@@ -1,6 +1,6 @@
 // DEV/TEST ONLY. Loaded only by `vite --mode uitest`. Drives the real-mode UI with in-memory fakes, persisted
 // to localStorage so refresh/resume can be tested. This is NOT Supabase and never ships in a production build.
-import { FakeAccountApi, FakeAuthApi, FakeSocialApi, FakeSocialWorld, type AuthUser } from '@lovoki/core';
+import { FakeAccountApi, FakeAuthApi, FakeDatingApi, FakeDatingWorld, FakeSocialApi, FakeSocialWorld, type AuthUser } from '@lovoki/core';
 import { RealAppView } from './RealApp';
 
 const KEY = 'lovoki.uitest.state';
@@ -23,6 +23,25 @@ function seedWorld() {
 }
 seedWorld();
 
+// Dating: fictional adults for the dev harness only. Rita Test has already liked every new account, so a mutual match can be tried at once.
+const dworld = new FakeDatingWorld(world);
+const DSEED = { rita: '00000000-0000-4000-8000-0000000000d1' };
+const PLACES = [{ label: 'Lisbon, Portugal', lat: 38.72, lng: -9.14 }, { label: 'Sintra, Portugal', lat: 38.8, lng: -9.38 }, { label: 'Setubal, Portugal', lat: 38.52, lng: -8.89 }, { label: 'Porto, Portugal', lat: 41.15, lng: -8.61 }];
+const INTENTIONS = ['long-term', 'friends-first', 'figuring-out', 'short-term-open'];
+function seedDating() {
+  world.users.set(DSEED.rita, { id: DSEED.rita, name: 'Rita Test', visibility: 'public', bio: 'Test person from the dev harness.', age: 29, completed: true });
+  dworld.setDating(DSEED.rita, { gender: 'woman', interestedIn: ['women', 'men', 'non-binary'], place: PLACES[0]!, intention: 'long-term', interests: ['jazz'], bio: 'Test person from the dev harness.', pronouns: 'she/her',
+    prompts: [{ question: 'A perfect Sunday', answer: 'Coffee, a long walk and no plans.' }] });
+  for (let i = 1; i <= 24; i++) {
+    const id = `00000000-0000-4000-8000-${String(1000 + i).padStart(12, '0')}`;
+    world.users.set(id, { id, name: `Dating Test ${i}`, visibility: 'public', bio: `Test profile number ${i}.`, age: 24 + (i % 12), completed: true });
+    dworld.setDating(id, { gender: (['woman', 'man', 'non-binary'] as const)[i % 3]!, interestedIn: ['women', 'men', 'non-binary'], place: PLACES[i % 4]!, intention: INTENTIONS[i % 4]!,
+      interests: [['jazz', 'coffee'], ['coffee'], ['hiking'], ['film', 'jazz']][i % 4]!, bio: i === 3 ? 'A very long unbroken string ' + 'z'.repeat(160) : `Test profile number ${i}.`, pronouns: 'they/them',
+      prompts: [{ question: 'I geek out on', answer: `Test thing number ${i}.` }], discoverable: true });
+  }
+}
+seedDating();
+
 try {
   const raw = localStorage.getItem(KEY);
   if (raw) {
@@ -32,13 +51,17 @@ try {
   }
   const w = localStorage.getItem(KEY + '.world');
   if (w) world.restore(JSON.parse(w));
+  const dw = localStorage.getItem(KEY + '.dating');
+  if (dw) dworld.restore(JSON.parse(dw));
 } catch { /* start clean */ }
 
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ users: [...auth.users], current: auth.current, accounts: [...accounts].map(([id, f]) => [id, f.account]) })); } catch { /* ignore */ } };
 setInterval(save, 100);
 addEventListener('pagehide', save);
 const saveWorld = () => { try { localStorage.setItem(KEY + '.world', JSON.stringify(world.snapshot())); } catch { /* ignore */ } };
-setInterval(saveWorld, 150);
+const saveDating = () => { try { localStorage.setItem(KEY + '.dating', JSON.stringify(dworld.snapshot())); } catch { /* ignore */ } };
+setInterval(() => { saveWorld(); saveDating(); syncAccounts(); }, 150);
+addEventListener('pagehide', () => { syncAccounts(); saveDating(); });
 addEventListener('pagehide', saveWorld);
 
 const make = (u: AuthUser) => {
@@ -47,6 +70,23 @@ const make = (u: AuthUser) => {
   return f;
 };
 
+// The account fake is the source of truth for the signed-in person's own dating profile; mirror it into the dating world.
+function syncAccounts() {
+  accounts.forEach((f, id) => {
+    const a = f.account; if (!a.onboarding.completedAt) return;
+    const u = world.users.get(id); if (u) { u.name = a.displayName || u.name; u.age = a.age ?? 30; u.visibility = a.socialVisibility; }
+    dworld.setDating(id, { gender: a.gender, showGender: a.showGender, showDistance: a.showDistance, interestedIn: a.interestedIn, ageMin: a.ageMin, ageMax: a.ageMax, maxKm: a.maxDistanceKm,
+      discoverable: a.datingDiscoverable, place: a.place, intention: a.intention ?? 'long-term', interests: a.interests.map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-')), bio: a.bio, pronouns: a.pronouns,
+      filterIntentions: a.filterIntentions, filterInterests: a.filterInterests.map((x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-')) });
+  });
+}
+const datings = new Map<string, FakeDatingApi>();
+const makeDating = (u: AuthUser) => {
+  makeSocial(u); syncAccounts();
+  if (!dworld.actions.has(`${DSEED.rita}>${u.id}`)) dworld.actions.set(`${DSEED.rita}>${u.id}`, { action: 'like', at: Date.now() });
+  let f = datings.get(u.id); if (!f) { f = new FakeDatingApi(dworld, u.id); f.latencyMs = 120; datings.set(u.id, f); }
+  return f;
+};
 const socials = new Map<string, FakeSocialApi>();
 const makeSocial = (u: AuthUser) => {
   if (!world.users.has(u.id)) world.users.set(u.id, { id: u.id, name: accounts.get(u.id)?.account.displayName || 'You', visibility: accounts.get(u.id)?.account.socialVisibility ?? 'public', bio: '', age: 30, completed: true });
@@ -57,7 +97,7 @@ const makeSocial = (u: AuthUser) => {
   return f;
 };
 
-declare global { interface Window { __fake: { auth: FakeAuthApi; accounts: Map<string, FakeAccountApi>; world: FakeSocialWorld; socials: Map<string, FakeSocialApi>; seed: typeof SEED } } }
-window.__fake = { auth, accounts, world, socials, seed: SEED };
+declare global { interface Window { __fake: { auth: FakeAuthApi; accounts: Map<string, FakeAccountApi>; world: FakeSocialWorld; socials: Map<string, FakeSocialApi>; seed: typeof SEED; dworld: FakeDatingWorld; datings: Map<string, FakeDatingApi>; dseed: typeof DSEED } } }
+window.__fake = { auth, accounts, world, socials, seed: SEED, dworld, datings, dseed: DSEED };
 
-export function UiTestApp() { return <RealAppView authApi={auth} make={make} makeSocial={makeSocial} />; }
+export function UiTestApp() { return <RealAppView authApi={auth} make={make} makeSocial={makeSocial} makeDating={makeDating} />; }

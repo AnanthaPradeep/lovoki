@@ -43,6 +43,8 @@ export class FakeDatingWorld {
   constructor(public social: FakeSocialWorld) {
     social.onBlock = (a, b) => { this.endMatch(a, b); this.exclusions.add(pair(a, b)); };
   }
+  snapshot() { return { dating: [...this.dating], actions: [...this.actions], matches: this.matches, exclusions: [...this.exclusions] }; }
+  restore(s: ReturnType<FakeDatingWorld['snapshot']>) { this.dating = new Map(s.dating); this.actions = new Map(s.actions); this.matches = s.matches; this.exclusions = new Set(s.exclusions); }
   setDating(id: string, d: Partial<FakeDating>) { this.dating.set(id, { ...DEFAULT, ...this.dating.get(id), ...d }); }
   d(id: string): FakeDating { return this.dating.get(id) ?? { ...DEFAULT, gender: null }; }
   activeMatch(a: string, b: string) { return this.matches.find((m) => !m.unmatched && m.a === (a < b ? a : b) && m.b === (a < b ? b : a)); }

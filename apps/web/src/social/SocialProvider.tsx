@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import type { AuthUser, MediaRef, SocialApi } from '@lovoki/core';
+import type { AuthUser, DatingApi, MediaRef, SocialApi } from '@lovoki/core';
 import { useAuth } from '../auth/AuthProvider';
 
-interface SocialCtx { api: SocialApi; userId: string; unread: number; refreshUnread: () => void; setUnread: (n: number) => void }
+interface SocialCtx { api: SocialApi; dating: DatingApi; userId: string; unread: number; refreshUnread: () => void; setUnread: (n: number) => void }
 const Ctx = createContext<SocialCtx | null>(null);
 
 export function useSocial(): SocialCtx {
@@ -20,10 +20,11 @@ export const useSocialOptional = () => useContext(Ctx);
  * The count refreshes on mount, when the tab regains focus or becomes visible, and on every navigation.
  * (Realtime delivery is Phase 5, so there is deliberately no subscription here.)
  */
-export function SocialProvider({ make, children }: { make: (user: AuthUser) => SocialApi; children: ReactNode }) {
+export function SocialProvider({ make, makeDating, children }: { make: (user: AuthUser) => SocialApi; makeDating: (user: AuthUser) => DatingApi; children: ReactNode }) {
   const { state } = useAuth();
   const user = state.user;
   const api = useMemo(() => (user ? make(user) : null), [user, make]);
+  const dating = useMemo(() => (user ? makeDating(user) : null), [user, makeDating]);
   const [unread, setUnread] = useState(0);
   const loc = useLocation();
 
@@ -40,7 +41,7 @@ export function SocialProvider({ make, children }: { make: (user: AuthUser) => S
     return () => { window.removeEventListener('focus', on); document.removeEventListener('visibilitychange', on); };
   }, [refreshUnread]);
 
-  const value = useMemo(() => (api && user ? { api, userId: user.id, unread, refreshUnread, setUnread } : null), [api, user, unread, refreshUnread]);
+  const value = useMemo(() => (api && dating && user ? { api, dating, userId: user.id, unread, refreshUnread, setUnread } : null), [api, dating, user, unread, refreshUnread]);
   if (!value) return <>{children}</>; // signed out: the route gate shows auth screens, which never call useSocial
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
-import type { AccountApi, AuthApi, AuthUser, SocialApi } from '@lovoki/core';
+import type { AccountApi, AuthApi, AuthUser, DatingApi, SocialApi } from '@lovoki/core';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { AccountProvider } from './account/AccountProvider';
 import { Gate } from './routes/Gate';
@@ -12,6 +12,7 @@ import { getSupabase } from './data/supabaseClient';
 import { SupabaseAuthApi } from './data/SupabaseAuthApi';
 import { SupabaseAccountApi } from './data/SupabaseAccountApi';
 import { SupabaseSocialApi } from './data/SupabaseSocialApi';
+import { SupabaseDatingApi } from './data/SupabaseDatingApi';
 import { SocialProvider, useSocialOptional } from './social/SocialProvider';
 import { userScope } from './data/userScope';
 import { useApplyTheme, useThemePref } from './ui-prefs';
@@ -31,6 +32,8 @@ import { RealFeed } from './screens/real/RealFeed';
 import { RealConnections } from './screens/real/RealConnections';
 import { RealNotifications } from './screens/real/RealNotifications';
 import { RealProfile } from './screens/real/RealProfile';
+import { RealDiscover } from './screens/real/RealDiscover';
+import { RealDatingProfile } from './screens/real/RealDatingProfile';
 import { NotFound } from './screens/NotFound';
 
 function AppShell() {
@@ -45,12 +48,12 @@ function AppShell() {
 }
 
 /** The real-mode UI, independent of where its data comes from (Supabase in production, in-memory fakes in UI tests). */
-export function RealAppView({ authApi, make, makeSocial }: { authApi: AuthApi; make: (u: AuthUser) => AccountApi; makeSocial: (u: AuthUser) => SocialApi }) {
+export function RealAppView({ authApi, make, makeSocial, makeDating }: { authApi: AuthApi; make: (u: AuthUser) => AccountApi; makeSocial: (u: AuthUser) => SocialApi; makeDating: (u: AuthUser) => DatingApi }) {
   useApplyTheme(useThemePref());
   return (
     <AuthProvider api={authApi}>
       <AccountProvider make={make}>
-        <SocialProvider make={makeSocial}>
+        <SocialProvider make={makeSocial} makeDating={makeDating}>
         <Gate>
           <Routes>
             <Route path="/" element={<Navigate to="/discover" replace />} />
@@ -64,7 +67,8 @@ export function RealAppView({ authApi, make, makeSocial }: { authApi: AuthApi; m
             <Route path="/onboarding" element={<OnboardingRedirect />} />
             <Route path="/onboarding/:step" element={<Onboarding />} />
             <Route element={<AppShell />}>
-              <Route path="/discover" element={<Unavailable title="Discover opens in a later phase" body="Meeting real people needs matching, which isn’t built yet. Your profile is saved and ready." phase="Phase 4" />} />
+              <Route path="/discover" element={<RealDiscover />} />
+              <Route path="/discover/:id" element={<RealDatingProfile />} />
               <Route path="/u/:id" element={<RealProfile />} />
               <Route path="/feed" element={<RealFeed />} />
               <Route path="/connections" element={<RealConnections />} />
@@ -90,5 +94,6 @@ export function RealApp({ cfg }: { cfg: { url: string; anonKey: string } }) {
   const authApi = useMemo(() => new SupabaseAuthApi(sb), [sb]);
   const make = useCallback((u: AuthUser) => new SupabaseAccountApi(sb, u.id, u.email, userScope), [sb]);
   const makeSocial = useCallback((u: AuthUser) => new SupabaseSocialApi(sb, u.id, userScope), [sb]);
-  return <RealAppView authApi={authApi} make={make} makeSocial={makeSocial} />;
+  const makeDating = useCallback(() => new SupabaseDatingApi(sb), [sb]);
+  return <RealAppView authApi={authApi} make={make} makeSocial={makeSocial} makeDating={makeDating} />;
 }

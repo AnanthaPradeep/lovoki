@@ -208,10 +208,10 @@ def main(visuals_only=False):
                 go(pg, '/connections'); expect(pg.get_by_role('heading', name='Connections')).to_be_visible()
                 expect(pg.get_by_test_id('person-row')).to_have_count(2); expect(pg.get_by_text('Waiting for them to accept')).to_be_visible()
                 pg.get_by_test_id('person-row').filter(has_text='Ben Test').get_by_role('button', name='Cancel request').click(); expect(pg.get_by_test_id('person-row')).to_have_count(1)
-                pg.get_by_role('tab', name=re.compile('^Matches')).click(); expect(pg.get_by_role('heading', name='Matches arrive in Phase 4')).to_be_visible()
+                pg.get_by_role('tab', name=re.compile('^Matches')).click(); expect(pg.get_by_role('heading', name='No matches yet')).to_be_visible()
                 pg.get_by_role('tab', name=re.compile('^Following')).click()
                 pg.get_by_test_id('person-row').get_by_role('button', name='Unfollow').click(); expect(pg.get_by_role('heading', name='You’re not following anyone')).to_be_visible()
-            T('connections: Following with requested state, cancel, unfollow; Matches stays an honest Phase 4 state', connections_lists)
+            T('connections: Following with requested state, cancel, unfollow; Matches is honestly empty', connections_lists)
 
             def requests_flow():
                 go(pg, '/settings'); pg.get_by_role('group', name='Social visibility').get_by_role('button', name='Followers').click(); expect(pg.get_by_text('Privacy settings saved.')).to_be_visible()
@@ -251,9 +251,9 @@ def main(visuals_only=False):
             T('empty states for a brand-new account; no demo people', empty_notifications_and_posts)
 
             def demo_guard():
-                go(pg, '/discover'); expect(pg.get_by_role('heading', name='Discover opens in a later phase')).to_be_visible()
+                go(pg, '/discover'); expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible()
                 go(pg, '/messages'); expect(pg.get_by_role('heading', name='Messaging isn’t live yet')).to_be_visible()
-            T('Discover and Messages remain honest later-phase screens', demo_guard)
+            T('Discover starts honestly empty without a gender; Messages remains a Phase 5 screen', demo_guard)
 
             def reduced_motion_real():
                 """Asserts what reduced motion DOES: animated elements stop animating. Compares against a no-preference context."""

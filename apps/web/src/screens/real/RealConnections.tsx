@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { HeartHandshake, Users } from 'lucide-react';
-import { SocialFailure, type MediaRef, type PeopleKind, type PersonRow, type SocialCounts } from '@lovoki/core';
+import { Link, useSearchParams } from 'react-router-dom';
+import { HeartHandshake, MessageCircle, Users } from 'lucide-react';
+import { DatingFailure, SocialFailure, bucketLabel, matchedAgo, type MatchView, type MediaRef, type PeopleKind, type PersonRow, type SocialCounts } from '@lovoki/core';
 import { ConfirmDialog, EmptyState, Notice, useToast } from '../../ui';
 import { useTitle } from '../../ui/useTitle';
 import { useMediaUrls, useSocial } from '../../social/SocialProvider';
@@ -15,7 +15,10 @@ const LABEL: Record<Tab, string> = { matches: 'Matches', following: 'Following',
 export function RealConnections() {
   useTitle('Connections');
   const { api, refreshUnread } = useSocial();
-  const [tab, setTab] = useState<Tab>('following');
+  const [params, setParams] = useSearchParams();
+  const initial = params.get('tab');
+  const [tab, setTabState] = useState<Tab>(initial === 'matches' || initial === 'followers' || initial === 'requests' ? initial : 'following');
+  const setTab = (t: Tab) => { setTabState(t); setParams(t === 'following' ? {} : { tab: t }, { replace: true }); };
   const [counts, setCounts] = useState<SocialCounts | null>(null);
   const loadCounts = useCallback(() => { api.counts().then(setCounts).catch(() => undefined); }, [api]);
   useEffect(() => { loadCounts(); }, [loadCounts]);
@@ -33,11 +36,56 @@ export function RealConnections() {
       </div>
       <div role="tabpanel" id="conn-panel" aria-labelledby={`ctab-${tab}`}>
         {tab === 'matches'
-          ? <EmptyState icon={<HeartHandshake size={28} />} title="Matches arrive in Phase 4" body="Matching and Discover aren’t built yet, so there is nothing to show here. Following people never creates a match."
-              action={<Link to="/feed" className="btn btn-primary">Open the feed</Link>} />
+          ? <MatchesList onChanged={refreshUnread} />
           : <PeopleList key={tab} kind={tab} onChanged={() => { loadCounts(); refreshUnread(); }} />}
       </div>
     </div>
+  );
+}
+
+function MatchesList({ onChanged }: { onChanged: () => void }) {
+  const { dating } = useSocial();
+  const toast = useToast();
+  const list = usePageList<MatchView & { id: string }>((c) => dating.matches(c), 'matches');
+  const [confirm, setConfirm] = useState<MatchView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const refs = useMemo<MediaRef[]>(() => list.items.filter((m) => m.photoPaths[0]).map((m) => ({ bucket: 'profile-photos', path: m.photoPaths[0]! })), [list.items]);
+  const { urls } = useMediaUrls(refs);
+
+  const unmatch = async (m: MatchView) => {
+    if (busy) return;
+    setBusy(true);
+    try { await dating.unmatch(m.matchId); list.setItems((cur) => cur.filter((x) => x.matchId !== m.matchId)); toast({ text: `You unmatched with ${m.displayName}.` }); onChanged(); }
+    catch (e) { toast({ text: e instanceof DatingFailure ? e.message : 'Couldn’t unmatch. Try again.', tone: 'error' }); }
+    finally { setBusy(false); }
+  };
+
+  if (list.status === 'loading') return <ListSkeleton />;
+  if (list.status === 'error') return <LoadError message={list.error ?? 'Couldn’t load your matches.'} onRetry={list.reload} />;
+  if (!list.items.length) return <EmptyState icon={<HeartHandshake size={28} />} title="No matches yet" body="When you and someone both like each other, you’ll match and they’ll appear here. Likes stay private until then." action={<Link to="/discover" className="btn btn-primary">Go to Discover</Link>} />;
+  return (
+    <>
+      <div style={{ marginBottom: 12 }}><Notice><MessageCircle size={14} aria-hidden style={{ verticalAlign: -2, marginRight: 6 }} />Messaging arrives in Phase 5. Until then, matches are saved here.</Notice></div>
+      <ul className="card card-pad list" style={{ listStyle: 'none', margin: 0 }} aria-label="Matches">
+        {list.items.map((m) => (
+          <li key={m.matchId} className="list-row" style={{ flexWrap: 'wrap' }} data-testid="match-row">
+            <Link to={`/discover/${m.userId}`} aria-label={`${m.displayName}’s profile`}><PersonAvatar name={m.displayName} url={m.photoPaths[0] ? urls.get(m.photoPaths[0]) : undefined} size={56} /></Link>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <Link to={`/discover/${m.userId}`} className="name truncate" style={{ display: 'block', textDecoration: 'none' }}>{m.displayName}, {m.age}</Link>
+              <span className="subtle">Matched {matchedAgo(m.matchedAt)}{bucketLabel(m.distanceBucket) ? ` · ${bucketLabel(m.distanceBucket)}` : ''}</span>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled aria-disabled="true" title="Messaging arrives in Phase 5"><MessageCircle size={16} aria-hidden />Say hello</button>
+              <Link to={`/discover/${m.userId}`} className="btn btn-secondary btn-sm">View</Link>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirm(m)}>Unmatch</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <LoadMore visible={!!list.next} state={list.more} error={list.error} onMore={list.loadMore} />
+      <ConfirmDialog open={!!confirm} onClose={() => setConfirm(null)} title={`Unmatch with ${confirm?.displayName ?? 'them'}?`} confirmLabel="Unmatch"
+        body="You’ll both disappear from each other’s Matches and Discover for good. They aren’t told, and this can’t be undone." onConfirm={() => { const m = confirm; if (m) void unmatch(m); }} />
+    </>
   );
 }
 

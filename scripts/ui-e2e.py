@@ -220,12 +220,12 @@ def main():
             btn(pg, 'Finish setup').click(); pg.wait_for_url('**/discover')
         T('review: preview shows age (never the birth date); finishing opens the app', review)
         def honest_discover():
-            expect(pg.get_by_role('heading', name='Discover opens in a later phase')).to_be_visible()
+            expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible()
             body = pg.inner_text('body'); assert not any(n in body for n in ['Maya', 'Kofi', 'Sofía', 'Arjun']), 'no demo people in real mode'
             go(pg, '/messages'); expect(pg.get_by_role('heading', name='Messaging isn’t live yet')).to_be_visible()
             go(pg, '/feed'); expect(pg.get_by_role('heading', name='Feed', exact=True)).to_be_visible()
-            go(pg, '/connections'); pg.get_by_role('tab', name='Matches').click(); expect(pg.get_by_role('heading', name='Matches arrive in Phase 4')).to_be_visible()
-        T('real mode: Discover, Matches and Messages are honest later-phase screens; no demo people or fake chats', honest_discover)
+            go(pg, '/connections'); pg.get_by_role('tab', name='Matches').click(); expect(pg.get_by_role('heading', name='No matches yet')).to_be_visible()
+        T('real mode: Discover and Matches are real and honestly empty, Messages is an honest Phase 5 screen; no demo people or fake chats', honest_discover)
         T('completed user visiting /onboarding is sent to the app', lambda: (go(pg, '/onboarding/basics'), pg.wait_for_url('**/discover')))
         T('signed-in user visiting /login is sent to the app', lambda: (go(pg, '/login'), pg.wait_for_url('**/discover')))
 

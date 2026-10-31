@@ -4,6 +4,7 @@ import { Monitor, Moon, Sun, LogOut } from 'lucide-react';
 import { AccountFailure, SocialFailure, type BlockedPerson, type ThemePreference } from '@lovoki/core';
 import { useSocial } from '../../social/SocialProvider';
 import { LoadError } from '../../social/parts';
+import { DatingSettings } from '../../dating/DatingSettings';
 import { useAuth } from '../../auth/AuthProvider';
 import { useReadyAccount } from '../../account/AccountProvider';
 import { themeStore, useThemePref } from '../../ui-prefs';
@@ -42,7 +43,7 @@ export function RealSettings() {
       </section>
       <section className="card card-pad" aria-labelledby="privacy"><h2 id="privacy" style={{ marginBottom: 8 }}>Privacy</h2>
         <div className="settings-group">
-          <label className="switch-row"><span className="grow"><b>Show me in Discover</b><br /><span className="subtle">Dating discoverability. Separate from who can see your profile.</span></span>
+          <label className="switch-row"><span className="grow"><b>Show me in Discover</b><br /><span className="subtle">Turn off to pause dating: you vanish from Discover at once and can’t like anyone. Matches stay.</span></span>
             <input type="checkbox" className="switch" checked={account.datingDiscoverable} disabled={busy} onChange={(e) => void savePrivacy({ datingDiscoverable: e.target.checked })} /></label>
           <div className="switch-row"><span className="grow"><b>Who can see your profile and posts</b><br /><span className="subtle">Social visibility.</span></span>
             <div className="segmented" role="group" aria-label="Social visibility">
@@ -51,6 +52,7 @@ export function RealSettings() {
             </div></div>
         </div>
       </section>
+      <DatingSettings />
       <BlockedAccounts />
       <section className="card card-pad stack" aria-labelledby="account"><h2 id="account">Account</h2>
         <p className="muted">Signed in as <b className="break">{account.email}</b></p>

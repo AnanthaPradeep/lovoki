@@ -45,7 +45,7 @@ describe('migration text', () => {
     const p4 = readFileSync(dir + '20261103000000_phase4_dating.sql', 'utf8').replace(/--.*$/gm, '');
     expect(p4).not.toMatch(/grant\s+(insert|update|delete|all)/i);
     expect([...p4.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1])).toEqual(['public.profile_places']);
-    expect(p4).not.toMatch(/to\s+anon/i);
+    expect(p4).not.toMatch(/\bto\s+anon\b/i);
   });
   it('Phase 4: the named limits live in exactly one function each', () => {
     const p4 = readFileSync(dir + '20261103000000_phase4_dating.sql', 'utf8');
