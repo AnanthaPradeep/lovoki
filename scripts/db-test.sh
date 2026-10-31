@@ -14,7 +14,8 @@ run()   { PGDATABASE="$DB" psql -v ON_ERROR_STOP=1 -q "$@"; }
 admin -c "create database \"$DB\""
 trap 'admin -c "drop database if exists \"$DB\"" >/dev/null 2>&1 || true' EXIT
 run -f "$ROOT/supabase/tests/00_supabase_stubs.sql"
-for f in "$ROOT"/supabase/migrations/*.sql; do echo "applying $(basename "$f")"; run -f "$f"; done
+# Only the Phase 2 migration runs on the stubs. Phase 3 needs real Auth/Storage: see npm run test:integration.
+for f in "$ROOT"/supabase/migrations/*phase2_foundation.sql; do echo "applying $(basename "$f")"; run -f "$f"; done
 run -f "$ROOT/supabase/tests/10_rls.sql" 2>&1 | tee /tmp/lovoki-db-test.log | grep -E "PASS|ERROR|ASSERT|FAILED|expected" || true
 grep -q "ALL DATABASE TESTS PASSED" /tmp/lovoki-db-test.log || { echo "DATABASE TESTS FAILED"; cat /tmp/lovoki-db-test.log | tail -20; exit 1; }
 echo "PASS count: $(grep -c 'PASS:' /tmp/lovoki-db-test.log)"

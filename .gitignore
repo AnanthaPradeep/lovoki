@@ -7,3 +7,4 @@ dist-single
 __pycache__
 *.log
 .DS_Store
+docs/screenshots/run/

@@ -90,3 +90,33 @@ Defects found and fixed by these checks: dialog buttons that submitted their par
 - Reduced motion: the global `prefers-reduced-motion` override is in `styles.css`. A browser test loads the page under that preference but does **not** assert the computed durations, so it is unverified.
 - Not tested: screen readers, Safari, Firefox, real touch devices, real Supabase, or iOS/Android keyboards for the date input.
 - Full-page screenshots distort sticky elements (the mobile Back/Continue bar appears mid-page). They behave correctly in a live viewport.
+
+
+---
+
+# Addendum: Phase 3 (social screens)
+
+## Skills used
+The Phase 1 skills (`/mnt/skills/...`) are not on this machine, so they could **not** be re-read. In this session only the index of `anthropic-skills:ui-design-styles` was read (its style catalog, not its reference files), and it names Minimalism and Dark Mode, which is what the approved design already is. No other design skill was located. The Phase 3 screens therefore use the existing tokens, components and Phase 1/2 screenshots as the reference. Nothing in the Phase 1 skill table above was re-applied.
+
+## What was reused, with no redesign
+Plum #381932 / milk #FFF3E6 tokens, light and dark themes, `.card`, `.post`, `.segmented`, `.list-row`, `Dialog`, `Menu`, `Notice`, `EmptyState`, `Toast`. New CSS is about 20 lines (spinner, unread row tint, 44px touch targets on narrow or touch screens).
+
+## Verified (observed in a test run, see `docs/screenshots/phase3/`)
+| Check | Evidence |
+|---|---|
+| No horizontal overflow on feed, explore, connections, notifications, profile, restricted profile, me, settings at 390, 768 and 1440 in light and dark | `scripts/social-e2e.py` layout matrix; 390px also on real data in `scripts/real-e2e.py` |
+| 44px touch targets on those screens at 390px | same matrix (`small_targets`) |
+| Visible focus ring and Enter activates the like button | keyboard test |
+| Reduced motion really stops animation (shimmer and spinner go from at least 1s and 0.5s to under 1ms, compared against normal motion) | reduced-motion test |
+| First frame of a lazy app root is a skeleton, not blank | delayed-chunk test |
+| Stable 4:5 image boxes, long unbroken text stays inside cards | layout test |
+| Loading, empty, error + retry states for feed, load more, comments, people, notifications, blocked list | social suite |
+| Dialog buttons are `type="button"`; Escape closes and Cancel never publishes | dialog test |
+| Toasts do not cover primary actions | **Not verified automatically.** Toasts appear at the top; viewport screenshots were reviewed by eye only for the composer. |
+
+## Honest copy checks
+Reports say "saved for review" and never claim action. Followers-only audience copy warns that followers can screenshot. Matches stays "arrives in Phase 4". Messages stays Phase 5.
+
+## Known visual gaps
+On 390px the feed header wraps the bell and "New post" under the title. Notification rows for likes and comments link to the profile page, not to the single post. Dark-theme contrast of the new "New" chip reuses the existing info chip and was not re-measured.
