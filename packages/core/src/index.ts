@@ -13,3 +13,5 @@ export * from './retry';
 export * from './session-scope';
 export * from './fakes';
 export * from './account-rows';
+export * from './social';
+export * from './social-fakes';
