@@ -30,7 +30,7 @@ describe('migration text', () => {
   });
   it('never embeds a secret or key (granting a function to service_role for operators is allowed)', () => {
     expect(noComments).not.toMatch(/sb_secret|eyJ[A-Za-z0-9_-]{10,}|service_role_key/i);
-    for (const m of noComments.matchAll(/service_role/gi)) expect(noComments.slice(Math.max(0, m.index! - 40), m.index!), 'service_role only appears in a GRANT').toMatch(/to\s+$/i);
+    for (const m of noComments.matchAll(/service_role/gi)) expect(noComments.slice(Math.max(0, m.index! - 40), m.index!), 'service_role only appears in a GRANT').toMatch(/to\s+$/i);
   });
   it('Phase 3: clients get no SELECT on posts, post_media, post_likes or post_comments (read only through the page functions)', () => {
     const grants = [...noComments.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1]).join(',');
