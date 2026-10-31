@@ -26,7 +26,7 @@ export function AccountSecurity() {
           : info === 'error' ? <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={load}>Try again</button>}>Couldn’t load your session details.</Notice>
           : <ul className="muted stack" style={{ gap: 2, margin: 0, paddingLeft: 20 }}>
               <li>Signed in as <b className="break">{info.email}</b> (via {info.provider})</li><li>Last sign-in: {when(info.lastSignInAt)}</li><li>This session renews until: {when(info.expiresAt)}</li></ul>}
-        {info && info !== 'error' && info.pendingEmail && <Notice>A change to <b className="break">{info.pendingEmail}</b> is waiting. Open the link we sent to that address to finish it. Until then your email stays <b className="break">{info.email}</b>.</Notice>}
+        {info && info !== 'error' && info.pendingEmail && <Notice>A change to <b className="break">{info.pendingEmail}</b> is waiting. Open the links we sent to both addresses to finish it. Until then your email stays <b className="break">{info.email}</b>.</Notice>}
       </div>
       <ChangePassword />
       <ChangeEmail current={info && info !== 'error' ? info.email : account.email} onSent={load} />
@@ -85,9 +85,9 @@ function ChangeEmail({ current, onSent }: { current: string | null; onSent: () =
   return (
     <form className="stack" style={{ gap: 12 }} onSubmit={submit} noValidate aria-labelledby="em-h">
       <b id="em-h"><Mail size={16} aria-hidden style={{ verticalAlign: -3, marginRight: 6 }} />Change email</b>
-      <p className="muted">Your email stays <b className="break">{current ?? 'unknown'}</b> until you open the confirmation link we send to the new address.</p>
+      <p className="muted">Your email stays <b className="break">{current ?? 'unknown'}</b> until you open the confirmation links we send to <b>both</b> your current and the new address.</p>
       {fail && <Notice tone="error">{fail}</Notice>}
-      {sentTo && <Notice tone="success">We sent a link to <b className="break">{sentTo}</b>. Open it in this browser to finish. Your login email hasn’t changed yet.</Notice>}
+      {sentTo && <Notice tone="success">We sent a link to <b className="break">{sentTo}</b> and one to your current address. Open both to finish. Your login email hasn’t changed yet.</Notice>}
       <TextField id="em-new" name="email" label="New email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} error={err} />
       <button type="submit" className="btn btn-primary" style={{ justifySelf: 'start' }} disabled={busy}>{busy ? 'Sending…' : 'Send confirmation'}</button>
     </form>
