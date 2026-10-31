@@ -72,7 +72,7 @@ describe('SupabaseSocialApi against the real stack', () => {
   });
   it('follow requests, people lists, counts, profile and notifications', async () => {
     expect(await b.follow(G.id)).toBe('pending');
-    expect((await b.profile(G.id))).toMatchObject({ restricted: true, displayName: 'adG', bio: null, followStatus: 'pending' });
+    expect((await b.profile(G.id))).toMatchObject({ restricted: true, displayName: 'adG', followStatus: 'pending' });
     expect((await g.people('requests')).items.map((p) => p.userId)).toEqual([B.id]);
     expect(await g.counts()).toEqual({ following: 0, followers: 0, requests: 1 });
     const n = (await g.notifications()).items; expect(n[0]).toMatchObject({ type: 'follow_request', actorId: B.id, followStatus: 'pending', read: false });

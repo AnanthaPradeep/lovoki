@@ -210,14 +210,14 @@ describe('post-media storage', () => {
     expect((await b.upload(`${other.id}/${pid}/${rid()}.png`, new TextEncoder().encode('hi'), { contentType: 'text/plain' })).error, 'text/plain').not.toBeNull();
     expect((await b.upload(`${other.id}/${pid}/${rid()}.png`, PNG, { contentType: 'image/svg+xml' })).error, 'svg').not.toBeNull();
   });
-  it('per-user object cap (60) holds for sequential uploads without policy recursion', async () => {
+  it('per-user object cap (120) holds for sequential uploads without policy recursion', async () => {
     const C = await createUser('mcap', { complete: false }); const pid = rid();
     let ok = 0, last = '';
-    for (let i = 0; i < 63; i++) {
+    for (let i = 0; i < 123; i++) {
       const r = await C.sb.storage.from('post-media').upload(`${C.id}/${pid}/${rid()}.png`, PNG, { contentType: 'image/png' });
       if (!r.error) ok++; else last = r.error.message;
     }
-    expect(ok, `accepted out of 63 (last error: ${last})`).toBe(60);
+    expect(ok, `accepted out of 123 (last error: ${last})`).toBe(120);
     expect(last).not.toMatch(/recursion/i);
   });
   it('read policy follows the post audience: public post readable by strangers, followers post only by accepted followers and the owner', async () => {

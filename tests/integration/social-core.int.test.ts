@@ -114,7 +114,8 @@ describe('visibility matrix', () => {
     await rpcFails(stranger, 'like_post', { p_post: dp }, 'LOVOKI_NOT_FOUND');
     const prof = must(await stranger.sb.rpc('social_profile', { p_user: D.id })) as { restricted: boolean; bio: string | null }[];
     expect(prof[0]!.restricted, 'discoverable but followers-only: restricted on social surfaces').toBe(true);
-    expect(prof[0]!.bio).toBeNull();
+    expect(prof[0]!.bio, 'D3: a private account keeps its bio public').toBe('Bio of dater');
+    expect(prof[0]).toMatchObject({ age: null, area_label: null, photo_path: null });
   });
 });
 
@@ -200,7 +201,7 @@ describe('follows', () => {
 });
 
 describe('profile and post audience changes', () => {
-  it('public -> followers-only: accepted followers keep access, strangers lose it; back to public accepts pending requests', async () => {
+  it('public -> followers-only: accepted followers keep access, strangers lose it; back to public keeps pending requests pending (no silent accept)', async () => {
     const O = await createUser('vo'); const acc = await createUser('vacc'); const str = await createUser('vstr');
     const p = await post(O, 'was public', 'public');
     await rpc(acc, 'follow_user', { p_user: O.id });
@@ -213,8 +214,8 @@ describe('profile and post audience changes', () => {
     expect(await rpc(str, 'follow_user', { p_user: O.id }), 'new follow is now a request').toBe('pending');
     expect(must(await O.sb.rpc('social_counts'))).toEqual([{ following: 0, followers: 1, requests: 1 }]);
     await rpc(O, 'save_privacy', { p_area_label: 'Lisbon', p_social_visibility: 'public', p_dating_discoverable: false });
-    expect(must(await admin.from('follows').select('status').eq('follower_id', str.id).eq('followee_id', O.id)).at(0)?.status, 'pending became accepted').toBe('accepted');
-    expect(must(await admin.from('notifications').select('id').eq('recipient_id', str.id).eq('type', 'follow_accepted')).length).toBe(1);
+    expect(must(await admin.from('follows').select('status').eq('follower_id', str.id).eq('followee_id', O.id)).at(0)?.status, 'private -> public must not approve anyone').toBe('pending');
+    expect(must(await admin.from('notifications').select('id').eq('recipient_id', str.id).eq('type', 'follow_accepted')).length).toBe(0);
     expect(await visibleIds(str, O)).toContain(p);
   });
   it('post public -> followers: strangers lose the post, its comments and its saved copy; followers keep it', async () => {
@@ -342,10 +343,10 @@ describe('social_profile exposes only the public view of another person', () => 
   it('shows a full card for public profiles and a name-only card for followers-only ones', async () => {
     const P = await createUser('sp'); const F = await createUser('sf', { visibility: 'followers' }); const V = await createUser('sv');
     const pub = (must(await V.sb.rpc('social_profile', { p_user: P.id })) as Record<string, unknown>[])[0]!;
-    expect(Object.keys(pub).sort()).toEqual(['age', 'area_label', 'avatar_crop', 'bio', 'details', 'display_name', 'follow_status', 'follower_count', 'follows_me_status', 'following_count', 'gender', 'gender_custom', 'interests', 'is_self', 'photo_path', 'post_count', 'prompts', 'pronouns', 'restricted', 'user_id', 'username'].sort());
+    expect(Object.keys(pub).sort()).toEqual(['age', 'area_label', 'avatar_blurhash', 'avatar_crop', 'bio', 'details', 'display_name', 'follow_status', 'follower_count', 'follows_me_status', 'following_count', 'gender', 'gender_custom', 'interests', 'is_private', 'is_sample', 'is_self', 'photo_path', 'post_count', 'prompts', 'pronouns', 'relationship', 'restricted', 'user_id', 'username'].sort());
     expect(pub.restricted).toBe(false); expect(pub.age).toBeGreaterThanOrEqual(18); expect(pub.bio).toBe('Bio of sp');
     const lim = (must(await V.sb.rpc('social_profile', { p_user: F.id })) as Record<string, unknown>[])[0]!;
-    expect(lim).toMatchObject({ restricted: true, display_name: 'sf', bio: null, age: null, photo_path: null, follower_count: null, area_label: null });
+    expect(lim).toMatchObject({ restricted: true, display_name: 'sf', bio: 'Bio of sf', age: null, photo_path: null, area_label: null, relationship: 'stranger', is_private: true });
     await rpc(V, 'follow_user', { p_user: F.id });
     expect((must(await V.sb.rpc('social_profile', { p_user: F.id })) as { restricted: boolean; follow_status: string }[])[0], 'pending request still restricted').toMatchObject({ restricted: true, follow_status: 'pending' });
     await rpc(F, 'respond_follow_request', { p_follower: V.id, p_accept: true });
