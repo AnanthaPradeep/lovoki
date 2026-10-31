@@ -26,7 +26,9 @@ export function evaluateConfig(env: Record<string, string | undefined>): AppConf
   if (mode !== 'demo' && mode !== 'supabase') problems.push(`VITE_LOVOKI_MODE must be "demo" or "supabase" (got "${mode}").`);
 
   const url = (env.VITE_SUPABASE_URL ?? '').trim();
-  const key = (env.VITE_SUPABASE_ANON_KEY ?? '').trim();
+  // VITE_SUPABASE_PUBLISHABLE_KEY is preferred; VITE_SUPABASE_ANON_KEY is the legacy name. If both are set the preferred one wins.
+  const keyName = (env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '').trim() ? 'VITE_SUPABASE_PUBLISHABLE_KEY' : 'VITE_SUPABASE_ANON_KEY';
+  const key = (env[keyName] ?? '').trim();
   if (mode === 'supabase') {
     if (!url) problems.push('VITE_SUPABASE_URL is not set.');
     else {
@@ -36,12 +38,12 @@ export function evaluateConfig(env: Record<string, string | undefined>): AppConf
         if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) problems.push('VITE_SUPABASE_URL must use https (http is allowed only for localhost).');
       } catch { problems.push('VITE_SUPABASE_URL is not a valid URL.'); }
     }
-    if (!key) problems.push('VITE_SUPABASE_ANON_KEY is not set.');
+    if (!key) problems.push('VITE_SUPABASE_PUBLISHABLE_KEY (or the legacy VITE_SUPABASE_ANON_KEY) is not set.');
     else {
-      if (key.startsWith('sb_secret_')) problems.push('VITE_SUPABASE_ANON_KEY looks like a secret key. Use only the publishable (anon) key in the browser.');
+      if (key.startsWith('sb_secret_')) problems.push(`${keyName} looks like a secret key. Use only the publishable key in the browser.`);
       const role = jwtRole(key);
-      if (role === 'service_role') problems.push('VITE_SUPABASE_ANON_KEY is a service_role key. Remove it now and rotate it in the Supabase dashboard.');
-      else if (role && role !== 'anon') problems.push(`VITE_SUPABASE_ANON_KEY has role "${role}". Use the anon key.`);
+      if (role === 'service_role') problems.push(`${keyName} is a service_role key. Remove it now and rotate it in the Supabase dashboard.`);
+      else if (role && role !== 'anon') problems.push(`${keyName} has role "${role}". Use the publishable (anon) key.`);
     }
   }
   if (problems.length) return { mode: 'error', problems };

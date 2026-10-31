@@ -32,4 +32,23 @@ describe('data mode configuration', () => {
     expect(evaluateConfig({ VITE_SUPABASE_SERVICE_ROLE_KEY: 'x' }).mode).toBe('error');
     expect(evaluateConfig({ VITE_LOVOKI_MODE: 'demo', VITE_SECRET_THING: 'x' }).mode).toBe('error');
   });
+  it('accepts the preferred publishable key name, the legacy anon name, and prefers the publishable one', () => {
+    const base = { VITE_LOVOKI_MODE: 'supabase', VITE_SUPABASE_URL: 'https://abc.supabase.co' };
+    expect(evaluateConfig({ ...base, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_abc' })).toEqual({ mode: 'supabase', url: 'https://abc.supabase.co', anonKey: 'sb_publishable_abc' });
+    expect(evaluateConfig({ ...base, VITE_SUPABASE_ANON_KEY: jwt('anon') })).toEqual({ mode: 'supabase', url: 'https://abc.supabase.co', anonKey: jwt('anon') });
+    expect(evaluateConfig({ ...base, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_new', VITE_SUPABASE_ANON_KEY: jwt('anon') }))
+      .toMatchObject({ mode: 'supabase', anonKey: 'sb_publishable_new' });
+  });
+  it('names the right variable when a secret is put in either key slot', () => {
+    const base = { VITE_LOVOKI_MODE: 'supabase', VITE_SUPABASE_URL: 'https://abc.supabase.co' };
+    const a = evaluateConfig({ ...base, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_abc' }); const b = evaluateConfig({ ...base, VITE_SUPABASE_ANON_KEY: jwt('service_role') });
+    expect(a.mode === 'error' && a.problems.join(' ')).toMatch(/VITE_SUPABASE_PUBLISHABLE_KEY looks like a secret/);
+    expect(b.mode === 'error' && b.problems.join(' ')).toMatch(/VITE_SUPABASE_ANON_KEY is a service_role/);
+    expect(evaluateConfig({ ...base }).mode).toBe('error');
+  });
+  it('rejects any VITE_ variable that smells like a secret, including a captcha secret', () => {
+    const r = evaluateConfig({ VITE_LOVOKI_MODE: 'demo', VITE_CAPTCHA_SECRET_KEY: 'x' });
+    expect(r.mode).toBe('error');
+  });
+  it('a captcha SITE key (public) is allowed', () => { expect(evaluateConfig({ VITE_LOVOKI_MODE: 'demo', VITE_CAPTCHA_SITE_KEY: '1x00000000000000000000AA' }).mode).toBe('demo'); });
 });
