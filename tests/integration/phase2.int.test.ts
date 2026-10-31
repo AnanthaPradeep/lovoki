@@ -83,8 +83,9 @@ describe('direct writes are denied (PostgREST)', () => {
 });
 
 describe('views never expose date of birth', () => {
-  it('public_profiles and discoverable_profiles have explicit columns and an age', async () => {
-    for (const v of ['public_profiles', 'discoverable_profiles']) {
+  it('public_profiles has explicit columns and an age; the old discoverable_profiles view no longer exists (Phase 4 removed it)', async () => {
+    expect((await A.sb.from('discoverable_profiles').select('*').limit(1)).error, 'view must be gone').not.toBeNull();
+    for (const v of ['public_profiles']) {
       const rows = must(await A.sb.from(v).select('*').limit(5)) as Record<string, unknown>[];
       for (const r of rows) {
         expect(Object.keys(r), `${v} columns`).not.toContain('date_of_birth');

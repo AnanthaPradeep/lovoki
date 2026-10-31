@@ -12,8 +12,8 @@ const noComments = sql.replace(/--.*$/gm, '');
 describe('migration text', () => {
   const tables = [...noComments.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]!);
   it('finds the expected tables', () => expect(tables.sort()).toEqual([
-    'blocks', 'content_reports', 'dating_preferences', 'follows', 'interests', 'notifications', 'onboarding_state', 'post_comments', 'post_likes',
-    'post_media', 'post_saves', 'posts', 'profile_interests', 'profile_photos', 'profile_prompts', 'profiles', 'profiles_private']));
+    'blocks', 'content_reports', 'dating_actions', 'dating_exclusions', 'dating_preferences', 'dating_rate', 'follows', 'interests', 'matches', 'notifications', 'onboarding_state', 'post_comments', 'post_likes',
+    'post_media', 'post_saves', 'posts', 'profile_interests', 'profile_photos', 'profile_places', 'profile_prompts', 'profiles', 'profiles_private']));
   it('enables row level security on every client-accessible table', () => {
     const looped = [...noComments.matchAll(/foreach t in array array\[([^\]]+)\]/g)].flatMap((m) => m[1]!.match(/'(\w+)'/g)!.map((s) => s.replace(/'/g, '')));
     for (const t of tables) expect(looped.includes(t) || new RegExp(`alter table public\\.${t} enable row level security`).test(noComments), t).toBe(true);
@@ -37,12 +37,22 @@ describe('migration text', () => {
     for (const t of ['posts', 'post_media', 'post_likes', 'post_comments']) expect(grants, t).not.toContain(`public.${t}`);
   });
   it('Phase 3: social code never reads dating state', () => {
-    const social = noComments.slice(noComments.indexOf('create table public.blocks'));
+    const social = readFileSync(dir + '20261102000000_phase3_social.sql', 'utf8').replace(/--.*$/gm, '');
     const withoutPhotoRule = social.replace(/create or replace function public\.can_view_photos_of[\s\S]*?end \$\$;/, '');
     expect(withoutPhotoRule).not.toMatch(/dating_preferences|dating_discoverable|match/i);
   });
+  it('Phase 4: dating tables have no client privileges beyond own-place read, and nothing is granted to anon', () => {
+    const p4 = readFileSync(dir + '20261103000000_phase4_dating.sql', 'utf8').replace(/--.*$/gm, '');
+    expect(p4).not.toMatch(/grant\s+(insert|update|delete|all)/i);
+    expect([...p4.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1])).toEqual(['public.profile_places']);
+    expect(p4).not.toMatch(/to\s+anon/i);
+  });
+  it('Phase 4: the named limits live in exactly one function each', () => {
+    const p4 = readFileSync(dir + '20261103000000_phase4_dating.sql', 'utf8');
+    for (const f of ["_limit_daily_likes", "_limit_discover_hourly", "_pass_days"]) expect(p4.split(`create function public.${f}(`).length - 1, f).toBe(1);
+  });
   it('the public views use date_of_birth only as the input to age_of(), never as an output column', () => {
-    for (const v of ['public_profiles', 'discoverable_profiles']) {
+    for (const v of ['public_profiles']) {
       const body = new RegExp(`create view public\\.${v}[\\s\\S]*?;`).exec(noComments)![0];
       expect(body).toMatch(/public\.age_of\(pr\.date_of_birth\) as age/);
       expect(body.replace(/public\.age_of\(pr\.date_of_birth\)/g, '')).not.toMatch(/\bdate_of_birth\b/);

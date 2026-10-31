@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, expect } from 'vitest';
@@ -99,4 +100,52 @@ export async function rawRest(u: TestUser | null, method: string, path: string, 
   const text = await res.text();
   let json: unknown = null; try { json = text ? JSON.parse(text) : null; } catch { /* not json */ }
   return { status: res.status, json, text };
+}
+
+/* ------------------------------------------------------------------ Phase 4 helpers */
+
+export const PLACES = {
+  lisbon: { label: 'Lisbon', lat: 38.72, lng: -9.14 },
+  almada: { label: 'Almada', lat: 38.68, lng: -9.16 },      // about 4.7 km from Lisbon
+  sintra: { label: 'Sintra', lat: 38.80, lng: -9.38 },      // about 22 km
+  setubal: { label: 'Setubal', lat: 38.52, lng: -8.89 },    // about 31 km
+  porto: { label: 'Porto', lat: 41.15, lng: -8.61 },        // about 274 km
+  madrid: { label: 'Madrid', lat: 40.42, lng: -3.70 },      // about 502 km
+} as const;
+export type PlaceKey = keyof typeof PLACES;
+
+export interface DatingOpts {
+  gender?: 'woman' | 'man' | 'non-binary'; interestedIn?: ('women' | 'men' | 'non-binary')[]; dob?: string; ageMin?: number; ageMax?: number;
+  maxKm?: number | null; place?: PlaceKey | null; discoverable?: boolean; intention?: string; social?: 'public' | 'followers'; showDistance?: boolean; showGender?: boolean;
+  interests?: string[]; complete?: boolean;
+}
+export const yearsAgo = (n: number) => { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - n); d.setUTCDate(d.getUTCDate() - 3); return d.toISOString().slice(0, 10); };
+
+/** A fully set up dating profile. Defaults: a woman aged 30 in Lisbon who wants men and women of any age 18 to 99. */
+export async function datingUser(label: string, o: DatingOpts = {}): Promise<TestUser> {
+  const u = await createUser(label, { complete: false });
+  await rpc(u, 'save_basics', { p_display_name: label, p_date_of_birth: o.dob ?? yearsAgo(30), p_pronouns: 'they/them' });
+  await rpc(u, 'save_about', { p_bio: `Bio of ${label}`, p_interests: o.interests ?? ['coffee'], p_prompts: [{ question: 'A perfect Sunday', answer: `Sunday of ${label}` }] });
+  await rpc(u, 'save_preferences', { p_intention: o.intention ?? 'long-term', p_interested_in: o.interestedIn ?? ['women', 'men', 'non-binary'], p_age_min: o.ageMin ?? 18, p_age_max: o.ageMax ?? 99, p_max_distance: o.maxKm ?? null });
+  await rpc(u, 'save_privacy', { p_area_label: 'Somewhere', p_social_visibility: o.social ?? 'followers', p_dating_discoverable: o.discoverable ?? true });
+  await rpc(u, 'save_dating_profile', { p_gender: o.gender ?? 'woman', p_show_gender: o.showGender ?? true, p_show_distance: o.showDistance ?? true });
+  if (o.place !== null) { const pl = PLACES[o.place ?? 'lisbon']; await rpc(u, 'save_place', { p_label: pl.label, p_lat: pl.lat, p_lng: pl.lng }); }
+  await addProfilePhoto(u);
+  if (o.complete !== false) await rpc(u, 'complete_onboarding');
+  return u;
+}
+
+/** Local-only: runs SQL inside the LOCAL database container (used to bend limits and age data in tests, never against anything else). */
+export function localSql(sql: string): string {
+  return execFileSync('docker', ['exec', 'supabase_db_lovoki', 'psql', '-U', 'postgres', '-At', '-c', sql], { encoding: 'utf8' }).trim();
+}
+
+export interface Card { user_id: string; display_name: string; age: number; gender: string | null; area_label: string; distance_bucket: string | null; intention: string; interests: string[]; photo_paths: string[]; page_cursor: string; bio: string }
+export const discover = (u: TestUser, cursor: string | null = null, limit = 10) => rpc<Card[]>(u, 'discover_profiles', { p_limit: limit, p_cursor: cursor });
+/** A person is "eligible" for the viewer exactly when dating_profile returns a card. */
+export const eligible = async (v: TestUser, t: TestUser) => (await rpc<unknown[]>(v, 'dating_profile', { p_user: t.id })).length === 1;
+export async function discoverAll(u: TestUser, limit = 10) {
+  const rows: Card[] = []; let cursor: string | null = null;
+  for (let i = 0; i < 30; i++) { const page = await discover(u, cursor, limit); rows.push(...page.slice(0, limit)); if (page.length <= limit) break; cursor = page[limit - 1]!.page_cursor; }
+  return rows;
 }
