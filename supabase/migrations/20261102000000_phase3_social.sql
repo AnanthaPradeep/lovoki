@@ -725,6 +725,10 @@ on conflict (id) do update
   set public = false, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
 
 -- Same recursion trap as profile photos: counting storage.objects inside a policy on storage.objects recurses.
+-- The cap is SOFT under heavy parallel uploads: the check and the insert are not atomic, and an advisory lock that
+-- works in plain SQL did not serialize uploads that go through the Storage API (tested: 30 parallel uploads, cap 12,
+-- 15 accepted). The overshoot is bounded by the number of parallel requests. Table-level limits stay hard
+-- (post_media.position = 0 and unique(post_id, position)). See docs/PHASE_3_SETUP.md.
 create function public.own_post_media_object_count()
 returns int language sql stable security definer set search_path = ''
 as $$

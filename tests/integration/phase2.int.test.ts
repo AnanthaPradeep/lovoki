@@ -173,6 +173,17 @@ describe('profile-photos storage rules', () => {
     expect(ok, `uploads accepted (last error: ${last})`).toBe(12);
     expect(last).not.toMatch(/recursion/i);
   });
+  it('KNOWN LIMITATION: the object cap is soft under parallel uploads, the photo table is not', async () => {
+    const C = await createUser('capper2', { complete: false });
+    const results = await Promise.all(Array.from({ length: 30 }, () => C.sb.storage.from('profile-photos').upload(`${C.id}/${rid()}.png`, PNG, { contentType: 'image/png' })));
+    const accepted = results.filter((r) => !r.error).length;
+    expect(accepted, 'at least the cap, never more than attempted').toBeGreaterThanOrEqual(12);
+    expect(accepted).toBeLessThan(30); // the cap still bites; only the overshoot is unbounded by the policy itself
+    const paths = results.filter((r) => !r.error).map((r) => r.data!.path);
+    const reg = await Promise.allSettled(paths.slice(0, 8).map((p) => rpc(C, 'register_photo', { p_path: p })));
+    expect(reg.filter((r) => r.status === 'fulfilled').length, 'register_photo is hard-capped at 6 even when raced').toBeLessThanOrEqual(6);
+    expect(must(await admin.from('profile_photos').select('id').eq('user_id', C.id)).length).toBeLessThanOrEqual(6);
+  });
   it('register_photo reads type and size from the stored object, not the client', async () => {
     const C = await createUser('reg', { complete: false });
     const { photoId } = await addProfilePhoto(C);
