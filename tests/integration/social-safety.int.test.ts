@@ -267,7 +267,9 @@ describe('post-media storage', () => {
     await rpc(other, 'create_post', { p_post_id: id, p_caption: '', p_audience: 'public', p_media_path: good }); // image-only post is fine
     const row = must(await admin.from('post_media').select('content_type,size_bytes').eq('post_id', id).single());
     expect(row).toEqual({ content_type: 'image/png', size_bytes: PNG.byteLength });
-    await rpcFails(other, 'create_post', { p_post_id: id, p_caption: 'again', p_audience: 'public' }, 'LOVOKI_INVALID'); // duplicate id
+    expect(await rpc(other, 'create_post', { p_post_id: id, p_caption: 'again', p_audience: 'public' }), 'a retry with the same id is idempotent').toBe(id);
+    expect(must(await admin.from('posts').select('caption').eq('id', id).single()).caption, 'and does not overwrite').toBe('');
+    await rpcFails(O, 'create_post', { p_post_id: id, p_caption: 'steal', p_audience: 'public' }, 'LOVOKI_INVALID'); // someone else cannot reuse the id
     await rpcFails(other, 'create_post', { p_post_id: rid(), p_caption: 'x'.repeat(2201), p_audience: 'public' }, 'LOVOKI_INVALID');
     await rpcFails(other, 'create_post', { p_post_id: rid(), p_caption: '   ', p_audience: 'public' }, 'LOVOKI_INVALID');
     await rpcFails(other, 'create_post', { p_post_id: rid(), p_caption: 'ok', p_audience: 'friends' }, 'LOVOKI_INVALID');

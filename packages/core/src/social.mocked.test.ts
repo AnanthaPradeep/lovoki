@@ -28,7 +28,9 @@ describe('posting and feeds (fake)', () => {
     expect(await code(me.createPost({ id, caption: '  ', audience: 'public', image: null }))).toBe('invalid');
     expect(await code(me.createPost({ id, caption: 'x'.repeat(2201), audience: 'public', image: null }))).toBe('invalid');
     expect(await code(me.createPost({ id, caption: 'ok', audience: 'public', image: null }))).toBe('ok');
-    expect(await code(me.createPost({ id, caption: 'ok', audience: 'public', image: null }))).toBe('invalid');
+    expect(await code(me.createPost({ id, caption: 'ok', audience: 'public', image: null })), 'same author retry is idempotent').toBe('ok');
+    expect(w.posts.filter((p) => p.id === id)).toHaveLength(1);
+    expect(await code(ann.createPost({ id, caption: 'steal', audience: 'public', image: null }))).toBe('invalid');
   });
   it('Explore is public posts from public profiles; Following is accepted follows plus own', async () => {
     await ann.createPost({ id: crypto.randomUUID(), caption: 'ann public', audience: 'public', image: null });

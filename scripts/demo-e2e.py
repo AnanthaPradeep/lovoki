@@ -1,5 +1,7 @@
 """Phase 1 demo-mode browser checks (sample data, no Supabase). Run against: vite --port 5175 (default demo mode)."""
-import re
+import os, re, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from e2e_common import FIX, SHOTS
 from playwright.sync_api import sync_playwright, expect
 from playwright.sync_api import Page
 _goto = Page.goto
@@ -28,12 +30,12 @@ with sync_playwright() as p:
     pg.get_by_role('button',name=re.compile(r'^Filters')).click(); pg.get_by_role('dialog').get_by_role('button',name='Diving').click(); pg.get_by_role('dialog').get_by_role('button',name='Still figuring it out').click()
     pg.get_by_role('dialog').get_by_role('button',name='Show 0 people').click(); pg.wait_for_timeout(200)
     ok('filtered empty state', pg.get_by_text('No one matches these filters').is_visible())
-    pg.screenshot(path='/home/claude/shots/state-empty-filter.png')
+    pg.screenshot(path=SHOTS + '/state-empty-filter.png')
     pg.get_by_role('button',name='Reset filters').first.click(); pg.wait_for_timeout(200)
     # mutual match with Maya (first card)
     pg.get_by_role('button',name='Like Maya').click(); pg.wait_for_timeout(900)
     ok('mutual match dialog', pg.get_by_role('heading',name='It’s mutual').is_visible())
-    pg.screenshot(path='/home/claude/shots/state-match.png')
+    pg.screenshot(path=SHOTS + '/state-match.png')
     pg.get_by_role('button',name='Send a message').click(); pg.wait_for_timeout(300)
     ok('chat with Maya opens with starter', pg.get_by_text('You and Maya matched').is_visible())
     pg.get_by_role('textbox',name='Message Maya').fill('Hi Maya, ash glazes please.'); pg.keyboard.press('Enter'); pg.wait_for_timeout(900)
@@ -42,7 +44,7 @@ with sync_playwright() as p:
     pg.goto(B+'/settings'); pg.get_by_text('Simulate failed network actions').click()
     pg.goto(B+'/messages/maya'); pg.get_by_role('textbox',name='Message Maya').fill('This one fails'); pg.keyboard.press('Enter'); pg.wait_for_timeout(900)
     ok('failed message shows retry', pg.get_by_text('Not sent').is_visible())
-    pg.screenshot(path='/home/claude/shots/state-failed.png')
+    pg.screenshot(path=SHOTS + '/state-failed.png')
     pg.goto(B+'/settings'); pg.get_by_text('Simulate failed network actions').click()
     pg.goto(B+'/messages/maya'); pg.get_by_role('button',name='Retry').click(); pg.wait_for_timeout(900)
     ok('retry delivers', pg.locator('.bubble-meta.err').count()==0)
@@ -59,16 +61,16 @@ with sync_playwright() as p:
     ok('comment added', first.get_by_text('Beautiful work').is_visible())
     # composer with local image
     pg.get_by_role('button',name='New post').click()
-    pg.locator('input[type=file]').set_input_files('/tmp/upload.png'); pg.wait_for_timeout(300)
+    pg.locator('input[type=file]').set_input_files(FIX + '/upload.png'); pg.wait_for_timeout(300)
     ok('image preview shown', pg.get_by_role('dialog').locator('img[alt="Your photo"]').is_visible())
     pg.get_by_label('Caption',exact=True).fill('Testing the composer'); pg.get_by_role('radio',name='Followers').check()
-    pg.screenshot(path='/home/claude/shots/state-composer.png')
+    pg.screenshot(path=SHOTS + '/state-composer.png')
     pg.get_by_role('button',name='Publish').click(); pg.wait_for_timeout(900)
     ok('post published to feed', pg.locator('article.post').first.get_by_text('Testing the composer').is_visible() and pg.locator('article.post').first.get_by_text('Followers only').is_visible())
     # edit profile validation + save
     pg.goto(B+'/me/edit'); pg.get_by_label('Age',exact=True).fill('17'); pg.get_by_label('Name',exact=True).fill(''); pg.get_by_role('button',name='Save changes').click()
     ok('validation errors shown', pg.get_by_text('LOVOKI is for adults 18 and over.').is_visible() and pg.get_by_text('Fix 2 fields before saving.').is_visible())
-    pg.screenshot(path='/home/claude/shots/state-validation.png', full_page=True)
+    pg.screenshot(path=SHOTS + '/state-validation.png', full_page=True)
     pg.get_by_label('Age',exact=True).fill('31'); pg.get_by_label('Name',exact=True).fill('Pradi N'); pg.get_by_label('Pronouns',exact=True).fill('he/him'); pg.get_by_role('button',name='Save changes').click(); pg.wait_for_timeout(300)
     ok('profile change appears', pg.get_by_role('heading',name='Pradi N, 31').is_visible() and pg.get_by_text('he/him').is_visible())
     # block Kofi from feed -> removed everywhere
@@ -98,16 +100,19 @@ with sync_playwright() as p:
     pg.get_by_role('button',name='Reset demo').click(); pg.get_by_role('dialog').get_by_role('button',name='Reset demo').click(); pg.wait_for_timeout(400)
     ok('reset demo restores', pg.locator('.list-row', has_text='Kofi').count()==0 and pg.evaluate("document.documentElement.dataset.theme") is None)
     # broken image fallback: Hiro
-    pg.goto(B+'/u/hiro'); pg.wait_for_timeout(1500)
+    pg.route('**/invalid.lovoki.example/**', lambda r: r.abort())  # deterministic: do not depend on how this network resolves DNS
+    pg.goto(B+'/u/hiro')
+    try: pg.get_by_text('Photo unavailable').first.wait_for(state='visible', timeout=8000)
+    except Exception: pass
     ok('broken image fallback', pg.get_by_text('Photo unavailable').first.is_visible())
-    pg.screenshot(path='/home/claude/shots/state-broken-image.png')
+    pg.screenshot(path=SHOTS + '/state-broken-image.png')
     # keyboard: pass via arrow key
     pg.goto(B+'/discover'); pg.wait_for_timeout(300); pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(400)
     ok('arrow-left passes', pg.get_by_role('heading',name='Arjun, 32').is_visible())
     # tab focus visibility
     pg.keyboard.press('Tab'); pg.keyboard.press('Tab')
     ok('focus outline visible', pg.evaluate("getComputedStyle(document.activeElement).outlineStyle")=='solid')
-    pg.screenshot(path='/home/claude/shots/state-focus.png')
+    pg.screenshot(path=SHOTS + '/state-focus.png')
     # horizontal overflow check at 390
     m=b.new_context(viewport={'width':390,'height':844}).new_page()
     over=[]

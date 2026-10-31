@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Compass, LayoutGrid, Users, MessageCircle, UserRound, Settings as SettingsIcon } from 'lucide-react';
+import { Bell, Compass, LayoutGrid, Users, MessageCircle, UserRound, Settings as SettingsIcon } from 'lucide-react';
 
 export const NAV = [
   { to: '/discover', label: 'Discover', icon: Compass },
@@ -11,7 +11,7 @@ export const NAV = [
 ];
 
 /** Navigation frame shared by demo and real mode. Knows nothing about where data comes from. */
-export function Shell({ children, unread = 0, footer }: { children: ReactNode; unread?: number; footer?: ReactNode }) {
+export function Shell({ children, unread = 0, notifications, footer }: { children: ReactNode; unread?: number; notifications?: number; footer?: ReactNode }) {
   const loc = useLocation();
   useEffect(() => { document.getElementById('main')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }, [loc.pathname]);
   const link = (n: (typeof NAV)[number], compact = false) => (
@@ -28,6 +28,12 @@ export function Shell({ children, unread = 0, footer }: { children: ReactNode; u
         <nav className="sidebar" aria-label="Primary">
           <NavLink to="/discover" className="wordmark" aria-label="LOVOKI home">LOVOKI<span>Meet the person behind the profile</span></NavLink>
           {NAV.map((n) => link(n))}
+          {notifications !== undefined && (
+            <NavLink to="/notifications" className="nav-link" aria-label={notifications > 0 ? `Notifications, ${notifications} unread` : 'Notifications'}>
+              <Bell size={22} aria-hidden /><span className="label">Notifications</span>
+              {notifications > 0 && <span className="badge" aria-hidden>{notifications > 99 ? '99+' : notifications}</span>}
+            </NavLink>
+          )}
           <div className="sidebar-foot">
             {footer}
             <NavLink to="/settings" className="nav-link" aria-label="Settings"><SettingsIcon size={22} aria-hidden /><span className="label">Settings</span></NavLink>

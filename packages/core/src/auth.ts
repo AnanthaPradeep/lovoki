@@ -49,7 +49,7 @@ export function mapAuthError(e: unknown): AuthFailure {
 }
 
 /* ---------- redirect safety ---------- */
-const ALLOWED = ['/discover', '/feed', '/connections', '/messages', '/me', '/settings', '/u', '/onboarding'];
+const ALLOWED = ['/discover', '/feed', '/connections', '/notifications', '/messages', '/me', '/settings', '/u', '/onboarding'];
 
 /** Returns an internal, known application path (with query) or the fallback. Never an external or unknown URL. */
 export function safeRedirect(next: string | null | undefined, fallback = '/discover'): string {

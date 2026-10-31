@@ -33,6 +33,16 @@ export class FakeSocialWorld {
   private tick = 1;
   next() { return this.tick++; }
 
+  /** JSON-safe copy of the whole world, so the dev-only UI harness can survive a page refresh. */
+  snapshot() {
+    return { users: [...this.users.values()], posts: this.posts, likes: [...this.likes], saves: [...this.saves], comments: this.comments,
+      follows: [...this.follows], blocks: [...this.blocks], notes: this.notes, reports: this.reports, tick: this.tick };
+  }
+  restore(s: ReturnType<FakeSocialWorld['snapshot']>) {
+    this.users = new Map(s.users.map((u) => [u.id, u])); this.posts = s.posts; this.likes = new Set(s.likes); this.saves = new Set(s.saves);
+    this.comments = s.comments; this.follows = new Map(s.follows); this.blocks = new Set(s.blocks); this.notes = s.notes; this.reports = s.reports; this.tick = s.tick;
+  }
+
   addUser(u: Partial<FakeUser> & { name: string }): FakeUser {
     const user: FakeUser = { id: crypto.randomUUID(), visibility: 'public', bio: `About ${u.name}`, age: 30, completed: true, ...u };
     this.users.set(user.id, user);
@@ -45,6 +55,10 @@ export class FakeSocialWorld {
     const v = this.users.get(viewer), a = this.users.get(author);
     if (!v || !a || !v.completed || !a.completed || this.blockedBetween(viewer, author)) return false;
     return effectiveAudience(audience, a.visibility) === 'public' || this.follows.get(key(viewer, author)) === 'accepted';
+  }
+  /** Test helper: adds a post as another (or any) author without going through an API object. */
+  addPost(authorId: string, caption: string, audience: Audience = 'public', media = false): string {
+    const id = crypto.randomUUID(); this.posts.push({ id, authorId, caption, audience, seq: this.next(), media }); return id;
   }
   notify(recipient: string, actor: string, type: NotificationType, postId: string | null = null, commentId: string | null = null) {
     if (recipient === actor || this.blockedBetween(recipient, actor)) return;
@@ -108,7 +122,8 @@ export class FakeSocialApi implements SocialApi {
     await this.gate('createPost');
     const bad = validateCaption(i.caption, !!i.image);
     if (bad) throw err('invalid', bad);
-    if (this.world.posts.some((p) => p.id === i.id)) throw err('invalid', 'That post was already created.');
+    const dup = this.world.posts.find((p) => p.id === i.id);
+    if (dup) { if (dup.authorId === this.me) return; throw err('invalid', 'That post was already created.'); }
     this.world.posts.push({ id: i.id, authorId: this.me, caption: i.caption.trim(), audience: i.audience, seq: this.world.next(), media: !!i.image });
   }
   async deletePost(id: string) {

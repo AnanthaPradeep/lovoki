@@ -414,3 +414,20 @@ a.list-row:hover { background: var(--c-surface-sunken); }
 
 .savebar { position: sticky; bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--c-surface-raised); border: 1px solid var(--c-border); border-radius: var(--radius-card); box-shadow: var(--shadow-2); z-index: 5; flex-wrap: wrap; }
 @media (max-width: 767px) { .savebar { bottom: calc(64px + env(safe-area-inset-bottom)); } }
+
+/* ---------- Phase 3: social ---------- */
+.spin { animation: spin 0.8s linear infinite; }
+.bell .badge { pointer-events: none; }
+.list-row[data-unread="true"] { background: var(--c-primary-soft); }
+.post-head .menu-wrap { flex: none; }
+.comment .icon-btn { width: 44px; height: 44px; }
+.comment-form .input { min-width: 0; }
+.post .caption, .post .text-only, .comment { overflow-wrap: anywhere; }
+.page h1.truncate { min-width: 0; }
+/* Touch targets: small buttons and text buttons grow to 44px on narrow or touch screens. */
+@media (max-width: 767px), (pointer: coarse) {
+  .btn-sm, .link-btn { min-height: 44px; }
+  .link-btn { display: inline-flex; align-items: center; }
+  .segmented button { min-height: 44px; }
+  .menu button { min-height: 44px; }
+}

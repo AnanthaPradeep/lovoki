@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
-import type { AccountApi, AuthApi, AuthUser } from '@lovoki/core';
+import type { AccountApi, AuthApi, AuthUser, SocialApi } from '@lovoki/core';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { AccountProvider } from './account/AccountProvider';
 import { Gate } from './routes/Gate';
@@ -11,6 +11,8 @@ import { ModeBadge } from './components/ModeBadge';
 import { getSupabase } from './data/supabaseClient';
 import { SupabaseAuthApi } from './data/SupabaseAuthApi';
 import { SupabaseAccountApi } from './data/SupabaseAccountApi';
+import { SupabaseSocialApi } from './data/SupabaseSocialApi';
+import { SocialProvider, useSocialOptional } from './social/SocialProvider';
 import { userScope } from './data/userScope';
 import { useApplyTheme, useThemePref } from './ui-prefs';
 import { Welcome } from './screens/auth/Welcome';
@@ -25,12 +27,17 @@ import { RealMe } from './screens/real/RealMe';
 import { RealEditProfile } from './screens/real/RealEditProfile';
 import { RealSettings } from './screens/real/RealSettings';
 import { Unavailable } from './screens/real/Unavailable';
+import { RealFeed } from './screens/real/RealFeed';
+import { RealConnections } from './screens/real/RealConnections';
+import { RealNotifications } from './screens/real/RealNotifications';
+import { RealProfile } from './screens/real/RealProfile';
 import { NotFound } from './screens/NotFound';
 
 function AppShell() {
   const { signOut } = useAuth();
+  const social = useSocialOptional(); // null for signed-out visitors who land on the not-found page
   return (
-    <Shell footer={<div style={{ padding: '0 12px 8px', display: 'grid', gap: 8 }}><ModeBadge mode="supabase" />
+    <Shell notifications={social?.unread} footer={<div style={{ padding: '0 12px 8px', display: 'grid', gap: 8 }}><ModeBadge mode="supabase" />
       <button className="nav-link" style={{ border: 0, background: 'none', width: '100%' }} onClick={() => void signOut()} aria-label="Log out"><LogOut size={22} aria-hidden /><span className="label">Log out</span></button></div>}>
       <Outlet />
     </Shell>
@@ -38,11 +45,12 @@ function AppShell() {
 }
 
 /** The real-mode UI, independent of where its data comes from (Supabase in production, in-memory fakes in UI tests). */
-export function RealAppView({ authApi, make }: { authApi: AuthApi; make: (u: AuthUser) => AccountApi }) {
+export function RealAppView({ authApi, make, makeSocial }: { authApi: AuthApi; make: (u: AuthUser) => AccountApi; makeSocial: (u: AuthUser) => SocialApi }) {
   useApplyTheme(useThemePref());
   return (
     <AuthProvider api={authApi}>
       <AccountProvider make={make}>
+        <SocialProvider make={makeSocial}>
         <Gate>
           <Routes>
             <Route path="/" element={<Navigate to="/discover" replace />} />
@@ -57,9 +65,10 @@ export function RealAppView({ authApi, make }: { authApi: AuthApi; make: (u: Aut
             <Route path="/onboarding/:step" element={<Onboarding />} />
             <Route element={<AppShell />}>
               <Route path="/discover" element={<Unavailable title="Discover opens in a later phase" body="Meeting real people needs matching, which isn’t built yet. Your profile is saved and ready." phase="Phase 4" />} />
-              <Route path="/u/:id" element={<Unavailable title="Profiles of other people arrive later" body="Viewing other people’s profiles comes with discovery and the social feed." phase="Phase 3" />} />
-              <Route path="/feed" element={<Unavailable title="The feed isn’t live yet" body="Posts, likes, comments and following need their own storage and audience rules." phase="Phase 3" />} />
-              <Route path="/connections" element={<Unavailable title="No connections yet" body="Matches and followers appear here once matching and following exist." phase="Phases 3 and 4" />} />
+              <Route path="/u/:id" element={<RealProfile />} />
+              <Route path="/feed" element={<RealFeed />} />
+              <Route path="/connections" element={<RealConnections />} />
+              <Route path="/notifications" element={<RealNotifications />} />
               <Route path="/messages" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
               <Route path="/messages/:id" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
               <Route path="/me" element={<RealMe />} />
@@ -69,6 +78,7 @@ export function RealAppView({ authApi, make }: { authApi: AuthApi; make: (u: Aut
             </Route>
           </Routes>
         </Gate>
+        </SocialProvider>
       </AccountProvider>
     </AuthProvider>
   );
@@ -79,5 +89,6 @@ export function RealApp({ cfg }: { cfg: { url: string; anonKey: string } }) {
   const sb = useMemo(() => getSupabase(cfg), [cfg]);
   const authApi = useMemo(() => new SupabaseAuthApi(sb), [sb]);
   const make = useCallback((u: AuthUser) => new SupabaseAccountApi(sb, u.id, u.email, userScope), [sb]);
-  return <RealAppView authApi={authApi} make={make} />;
+  const makeSocial = useCallback((u: AuthUser) => new SupabaseSocialApi(sb, u.id, userScope), [sb]);
+  return <RealAppView authApi={authApi} make={make} makeSocial={makeSocial} />;
 }

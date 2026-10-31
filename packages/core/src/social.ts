@@ -224,7 +224,8 @@ export type PostAction =
   | { type: 'comments/delta'; id: string; delta: number }
   | { type: 'comments/set'; id: string; count: number }
   | { type: 'audience'; id: string; audience: Audience }
-  | { type: 'remove'; id: string };
+  | { type: 'remove'; id: string }
+  | { type: 'removeAuthor'; authorId: string };
 
 const patch = (s: ListState<PostView>, id: string, fn: (p: PostView) => PostView): ListState<PostView> =>
   ({ ...s, items: s.items.map((p) => (p.id === id ? fn(p) : p)) });
@@ -249,6 +250,7 @@ export function postsReducer(s: ListState<PostView>, a: PostAction): ListState<P
     case 'comments/set': return patch(s, a.id, (p) => ({ ...p, commentCount: Math.max(0, a.count) }));
     case 'audience': return patch(s, a.id, (p) => ({ ...p, audience: a.audience }));
     case 'remove': return { ...s, items: s.items.filter((p) => p.id !== a.id) };
+    case 'removeAuthor': return { ...s, items: s.items.filter((p) => p.authorId !== a.authorId) };
   }
 }
 

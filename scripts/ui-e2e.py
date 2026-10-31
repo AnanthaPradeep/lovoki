@@ -1,10 +1,12 @@
 """Browser tests of the REAL-MODE UI driven by in-memory fakes (vite --mode uitest, port 5174).
 NOT a Supabase test: auth, database and storage are fakes. It verifies routing, guards, forms, states and layout."""
-import re, sys, time, uuid
+import os, re, sys, time, uuid
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from e2e_common import FIX, SHOTS
 from playwright.sync_api import sync_playwright, expect
 
 BASE = 'http://127.0.0.1:5174'
-SHOTS = '/home/claude/shots2'
+
 PW = 'correct horse battery'
 results, page_errors = [], []
 CUR = {'pg': None}
@@ -55,7 +57,7 @@ def finish_onboarding(pg, shot=None, overflow=None):
     btn(pg, 'Add a prompt').click(); pg.locator('#pa-0').fill('Slow coffee and a long walk with nowhere to be.')
     pg.locator('#bio').fill('Frontend developer who writes songs at night.'); cont(pg)
     pg.wait_for_url('**/onboarding/preferences'); pg.get_by_label('Long-term partner').check(); pg.get_by_label('Women', exact=True).check(); snap('onb-preferences'); cont(pg)
-    pg.wait_for_url('**/onboarding/photos'); pg.locator('input[type=file]').set_input_files(['/tmp/p1.png', '/tmp/p2.jpg'])
+    pg.wait_for_url('**/onboarding/photos'); pg.locator('input[type=file]').set_input_files([FIX + '/p1.png', FIX + '/p2.jpg'])
     wait_photos(pg, 2); snap('onb-photos'); cont(pg)
     pg.wait_for_url('**/onboarding/privacy'); pg.locator('#areaLabel').fill('Kochi, Kerala'); snap('onb-privacy'); cont(pg)
     pg.wait_for_url('**/onboarding/review'); pg.wait_for_timeout(300); snap('onb-review'); btn(pg, 'Finish setup').click(); pg.wait_for_url('**/discover')
@@ -172,16 +174,16 @@ def main():
         T('photos: at least one is required', photos_required)
         def photos_bad():
             fi = pg.locator('input[type=file]')
-            fi.set_input_files('/tmp/anim.gif'); expect(pg.get_by_text('Use a JPG, PNG or WebP image.')).to_be_visible()
-            fi.set_input_files('/tmp/fake.jpg'); expect(pg.get_by_text('That file isn’t a JPG, PNG or WebP image.')).to_be_visible()
-            fi.set_input_files('/tmp/small.png'); expect(pg.get_by_text('Choose a larger image: at least 400 pixels on the short side.')).to_be_visible()
+            fi.set_input_files(FIX + '/anim.gif'); expect(pg.get_by_text('Use a JPG, PNG or WebP image.')).to_be_visible()
+            fi.set_input_files(FIX + '/fake.jpg'); expect(pg.get_by_text('That file isn’t a JPG, PNG or WebP image.')).to_be_visible()
+            fi.set_input_files(FIX + '/small.png'); expect(pg.get_by_text('Choose a larger image: at least 400 pixels on the short side.')).to_be_visible()
             assert pg.locator('.photo-status[data-failed="true"]').count() == 3
             pg.screenshot(path=f'{SHOTS}/state-photo-failed.png')
             for _ in range(3): btn(pg, 'Dismiss').first.click()
             expect(pg.locator('li.photo-tile')).to_have_count(0)
         T('photos: GIF, disguised executable and tiny image are rejected with clear messages', photos_bad)
         def photos_ok():
-            pg.locator('input[type=file]').set_input_files(['/tmp/p1.png', '/tmp/p2.jpg']); wait_photos(pg, 2)
+            pg.locator('input[type=file]').set_input_files([FIX + '/p1.png', FIX + '/p2.jpg']); wait_photos(pg, 2)
             st = pg.evaluate("[...window.__fake.accounts.values()].map(a => a.account.photos.map(p => [p.contentType, p.sizeBytes]))")[0]
             assert len(st) == 2 and all(t == 'image/jpeg' and 0 < s < 5 * 1024 * 1024 for t, s in st), st
             expect(pg.get_by_text('Main photo')).to_have_count(1)
@@ -196,10 +198,10 @@ def main():
             btn(pg, 'Remove photo 2').click(); expect(pg.get_by_role('heading', name='Remove this photo?')).to_be_visible()
             btn(pg, 'Cancel').click(); expect(pg.locator('li.photo-tile')).to_have_count(2)
             btn(pg, 'Remove photo 2').click(); btn(pg, 'Remove photo', True).click(); wait_photos(pg, 1)
-            pg.locator('input[type=file]').set_input_files('/tmp/p2.jpg'); wait_photos(pg, 2)
+            pg.locator('input[type=file]').set_input_files(FIX + '/p2.jpg'); wait_photos(pg, 2)
         T('photos: delete asks first, cancel keeps, confirm removes', photos_delete)
         def photos_limit():
-            for k in range(3, 7): pg.locator('input[type=file]').set_input_files('/tmp/p2.jpg'); wait_photos(pg, k)
+            for k in range(3, 7): pg.locator('input[type=file]').set_input_files(FIX + '/p2.jpg'); wait_photos(pg, k)
             expect(pg.locator('li.photo-tile')).to_have_count(6); expect(pg.locator('.photo-add')).to_have_count(0)
             for k in range(5, 1, -1): btn(pg, f'Remove photo {k + 1}').click(); btn(pg, 'Remove photo', True).click(); wait_photos(pg, k)
             expect(pg.locator('.photo-add')).to_have_count(1)
@@ -220,9 +222,10 @@ def main():
         def honest_discover():
             expect(pg.get_by_role('heading', name='Discover opens in a later phase')).to_be_visible()
             body = pg.inner_text('body'); assert not any(n in body for n in ['Maya', 'Kofi', 'Sofía', 'Arjun']), 'no demo people in real mode'
-            for r, h in [('/feed', 'The feed isn’t live yet'), ('/connections', 'No connections yet'), ('/messages', 'Messaging isn’t live yet')]:
-                go(pg, r); expect(pg.get_by_role('heading', name=h)).to_be_visible()
-        T('real mode shows honest "later phase" screens and no demo people or fake chats', honest_discover)
+            go(pg, '/messages'); expect(pg.get_by_role('heading', name='Messaging isn’t live yet')).to_be_visible()
+            go(pg, '/feed'); expect(pg.get_by_role('heading', name='Feed', exact=True)).to_be_visible()
+            go(pg, '/connections'); pg.get_by_role('tab', name='Matches').click(); expect(pg.get_by_role('heading', name='Matches arrive in Phase 4')).to_be_visible()
+        T('real mode: Discover, Matches and Messages are honest later-phase screens; no demo people or fake chats', honest_discover)
         T('completed user visiting /onboarding is sent to the app', lambda: (go(pg, '/onboarding/basics'), pg.wait_for_url('**/discover')))
         T('signed-in user visiting /login is sent to the app', lambda: (go(pg, '/login'), pg.wait_for_url('**/discover')))
 
@@ -261,7 +264,7 @@ def main():
             btn(pg, 'Followers').click(); pg.wait_for_timeout(300); btn(pg, 'Dark').click()
             assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
             pg.reload(); pg.wait_for_timeout(400); assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'theme persists'
-            expect(pg.get_by_text('Blocked accounts: with the social and dating features')).to_be_visible()
+            expect(pg.get_by_role('heading', name='Blocked accounts')).to_be_visible(); expect(pg.get_by_text('You haven’t blocked anyone.')).to_be_visible()
             for fake in ['Delete account', 'Verify']: assert pg.get_by_role('button', name=fake).count() == 0, f'no fake {fake} button'
         T('settings: privacy persists, theme persists, unfinished features are plainly unavailable', settings)
         def reduced_motion():

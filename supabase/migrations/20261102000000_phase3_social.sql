@@ -245,7 +245,11 @@ begin
   if p_audience not in ('public', 'followers') then raise exception 'LOVOKI_INVALID: audience'; end if;
   if char_length(cap) > 2200 then raise exception 'LOVOKI_INVALID: caption'; end if;
   if cap = '' and p_media_path is null then raise exception 'LOVOKI_INVALID: empty_post'; end if;
-  if exists (select 1 from public.posts where id = p_post_id) then raise exception 'LOVOKI_INVALID: duplicate_post'; end if;
+  if exists (select 1 from public.posts where id = p_post_id) then
+    -- A retry after a lost response must not fail: the same author re-sending the same id gets the same post back.
+    if exists (select 1 from public.posts where id = p_post_id and author_id = u) then return p_post_id; end if;
+    raise exception 'LOVOKI_INVALID: duplicate_post';
+  end if;
   insert into public.posts (id, author_id, caption, audience) values (p_post_id, u, cap, p_audience);
   if p_media_path is not null then
     if p_media_path !~ ('^' || u::text || '/' || p_post_id::text || '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$') then
