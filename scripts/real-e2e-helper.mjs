@@ -102,7 +102,7 @@ if (cmd === 'env') {
   console.log(JSON.stringify({ removed: n, others }));
 } else if (cmd === 'dating-user') { // a fully onboarded dating user: label gender interestedIn(comma) place(lisbon|sintra|madrid)
   const [label, gender, wants, place] = args;
-  const city = { lisbon: 'Lisbon', sintra: 'Sintra', madrid: 'Madrid' }[place ?? 'lisbon'];
+  const city = { lisbon: 'Lisbon', setubal: 'Setúbal', madrid: 'Madrid' }[place ?? 'lisbon'];
   const u = await person(label, 'public', city);
   must(await u.sb.rpc('save_dating_profile', { p_gender: gender, p_show_gender: true, p_show_distance: true }), 'dating profile');
   must(await u.sb.rpc('save_preferences', { p_intention: 'long-term', p_interested_in: wants.split(','), p_age_min: 18, p_age_max: 99, p_max_distance: null }), 'prefs');

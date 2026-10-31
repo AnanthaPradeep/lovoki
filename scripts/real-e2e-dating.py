@@ -35,7 +35,7 @@ def main():
     if purged['others']:
         raise SystemExit(f"{purged['others']} other account(s) exist on this local database (for example seed users). Remove them first so the deck is predictable: node scripts/seed-local-users.mjs --remove")
     bea = dating_person('Bea Real', 'woman', 'men', 'lisbon'); cat = dating_person('Cat Real', 'woman', 'men', 'madrid')
-    dan = dating_person('Dan Real', 'man', 'women', 'lisbon'); eve = dating_person('Eve Real', 'woman', 'men', 'sintra')
+    dan = dating_person('Dan Real', 'man', 'women', 'lisbon'); eve = dating_person('Eve Real', 'woman', 'men', 'setubal')
     server = R.start_server(env)
     try:
         with sync_playwright() as p:
@@ -51,26 +51,30 @@ def main():
             email = f'alice.{uuid.uuid4().hex[:6]}@lovoki-e2e.test'; st = {}
 
             def signup():
-                goto(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(R.PW); btn(pg, 'Create account').click()
+                goto(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(R.PW); pg.locator('input[name=agree]').check(); btn(pg, 'Create account').click()
                 pg.wait_for_url('**/check-email'); pg.goto(R.mail_link(mail, email), wait_until='domcontentloaded'); pg.wait_for_url('**/onboarding/basics', timeout=20000)
                 R.onboard_via_ui(pg, 'Alice Real'); st['me'] = pg.evaluate("JSON.parse(localStorage.getItem('lovoki.auth')).user.id")
             T('REAL: sign up by email, confirm, onboard through the UI', signup)
 
             def needs_gender():
-                goto(pg, '/discover'); expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible()
+                goto(pg, '/discover'); expect(pg.get_by_role('heading', name='Dating is paused')).to_be_visible()
                 assert 'Real' not in pg.inner_text('main').replace('Alice Real', ''), 'nobody is shown before the profile is ready'
-            T('REAL: Discover without a gender explains why and shows no one', needs_gender)
+            T('REAL: a new account starts paused, explains why and shows no one', needs_gender)
 
             def set_profile():
                 goto(pg, '/settings'); sec = pg.get_by_role('region', name='Dating profile')
+                row = R.helper('query', 'profiles', 'user_id', st['me'])[0]; assert row['gender'] == 'woman' and row['dating_discoverable'] is False, 'onboarding saved the gender; dating starts off (opt-in)'
                 sec.get_by_role('group', name='Your gender').get_by_role('button', name='Man', exact=True).click(); expect(pg.get_by_text('Gender saved.')).to_be_visible()
-                sec.get_by_label(re.compile('^Your city')).select_option(label='Lisbon, Portugal'); expect(pg.get_by_text('Your place is saved as Lisbon, Portugal.')).to_be_visible()
-                row = R.helper('query', 'profiles', 'user_id', st['me'])[0]; assert row['gender'] == 'man' and row['dating_discoverable'] is False, 'dating starts off (opt-in)'
+                pg.get_by_role('button', name=re.compile('^Remove Lisbon')).click(); expect(pg.get_by_text('Your city was removed.')).to_be_visible()
+                sec.get_by_role('combobox').fill('Lisb'); pg.get_by_role('listbox', name='Cities').get_by_role('option').first.click(); expect(pg.get_by_text('Your city is saved as Lisbon, Portugal.')).to_be_visible()
+                assert R.helper('query', 'profiles', 'user_id', st['me'])[0]['gender'] == 'man'
                 goto(pg, '/discover'); expect(pg.get_by_role('heading', name='Dating is paused')).to_be_visible()
                 goto(pg, '/settings'); pg.get_by_label('Show me in Discover').click(); expect(pg.get_by_text('Privacy settings saved.')).to_be_visible()
                 assert R.helper('query', 'profiles', 'user_id', st['me'])[0]['dating_discoverable'] is True
-                pl = R.helper('query', 'profile_places', 'user_id', st['me'])[0]; assert (float(pl['lat']), float(pl['lng'])) == (38.72, -9.14)
-            T('REAL: gender and city saved through Settings (place stored rounded)', set_profile)
+                pl = R.helper('query', 'profile_places', 'user_id', st['me'])[0]
+                assert all(abs(round(float(pl[k]) / 0.05) * 0.05 - float(pl[k])) < 1e-6 for k in ('lat', 'lng')), f'stored on the ~5 km grid: {pl}'
+                rows = R.helper('query', 'profile_places', 'user_id', st['me']); assert len(rows) == 1
+            T('REAL: gender and city saved through Settings (place stored rounded to a ~5 km grid)', set_profile)
 
             def deck():
                 goto(pg, '/discover'); R.wait_posts if False else None; pg.wait_for_selector('[data-testid=dating-card]', timeout=20000)
@@ -83,7 +87,7 @@ def main():
             T('REAL: the deck offers exactly the compatible people, and the card photo loads through a signed URL', deck)
 
             def buckets():
-                for who, want in [(bea, 'Less than 5 km away'), (eve, 'Less than 25 km away'), (cat, 'More than 100 km away')]:
+                for who, want in [(bea, 'Less than 5 km away'), (eve, 'Less than 50 km away'), (cat, 'More than 100 km away')]:
                     goto(pg, f"/discover/{who['id']}"); pg.wait_for_selector('[data-testid=dating-card]'); assert want in pg.inner_text('main'), f"{who['email']}: {want}"
                     html = pg.content(); assert not re.search(r'38\.7\d|-9\.1\d|40\.42|date_of_birth', html)
                 goto(pg, f"/discover/{dan['id']}"); expect(pg.get_by_role('heading', name='This person isn’t available')).to_be_visible()
@@ -131,9 +135,9 @@ def main():
 
             def filters_persist():
                 CUR['pg'] = pg; goto(pg, '/discover'); pg.wait_for_selector('[data-testid=dating-card]'); btn(pg, re.compile('^Filters')).click(); d = pg.get_by_role('dialog')
-                d.get_by_label('Distance').select_option(label='Within 25 km'); d.get_by_role('button', name='Save filters').click(); expect(pg.get_by_text('Filters saved.')).to_be_visible()
-                assert R.helper('query', 'dating_preferences', 'user_id', st['me'])[0]['max_distance_km'] == 25
-                names = fresh_names(pg, lambda: pg.reload()); assert cat['id'] not in names and eve['id'] in names, f'Madrid is beyond 25 km: {names}'
+                d.get_by_label('Distance').select_option(label='Within 50 km'); d.get_by_role('button', name='Save filters').click(); expect(pg.get_by_text('Filters saved.')).to_be_visible()
+                assert R.helper('query', 'dating_preferences', 'user_id', st['me'])[0]['max_distance_km'] == 50
+                names = fresh_names(pg, lambda: pg.reload()); assert cat['id'] not in names and eve['id'] in names, f'Madrid is beyond 50 km: {names}'
                 expect(pg.get_by_role('button', name=re.compile('^Filters, \\d+ active'))).to_be_visible()
                 btn(pg, re.compile('^Filters')).click(); d = pg.get_by_role('dialog'); d.get_by_label('Distance').select_option(label='Any distance'); d.get_by_role('button', name='Save filters').click(); expect(pg.get_by_text('Filters saved.').first).to_be_visible()
                 assert R.helper('query', 'dating_preferences', 'user_id', st['me'])[0]['max_distance_km'] is None, 'filter removed again'

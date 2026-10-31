@@ -85,13 +85,16 @@ def stop_server(proc):
     else: proc.kill()
 
 def onboard_via_ui(pg, name):
-    pg.wait_for_url('**/onboarding/basics'); pg.locator('#displayName').fill(name); pg.locator('#dateOfBirth').fill('1996-04-18'); btn(pg, 'Continue').click()
-    pg.wait_for_url('**/onboarding/about'); btn(pg, 'Cooking', True).click(); pg.locator('#bio').fill('Real browser test account.'); btn(pg, 'Continue').click()
+    pg.wait_for_url('**/onboarding/basics'); pg.locator('#displayName').fill(name); pg.locator('#dateOfBirth').fill('1996-04-18')
+    handle = 'alice.' + uuid.uuid4().hex[:6]; pg.get_by_label('Username', exact=True).fill(handle); pg.get_by_label('Woman', exact=True).check()
+    expect(pg.get_by_text('Available.', exact=False).first).to_be_visible(timeout=8000); btn(pg, 'Continue').click()
     pg.wait_for_url('**/onboarding/preferences'); pg.get_by_label('Long-term partner').check(); pg.get_by_label('Women', exact=True).check(); btn(pg, 'Continue').click()
     pg.wait_for_url('**/onboarding/photos'); pg.locator('input[type=file]').set_input_files([FIX + '/p1.png', FIX + '/p2.jpg'])
     pg.wait_for_function("document.querySelectorAll('.photo-tile').length >= 2 && !document.querySelector('.photo-tile[data-busy=\"true\"]')", timeout=30000)
-    btn(pg, 'Continue').click(); pg.wait_for_url('**/onboarding/privacy'); pg.locator('#areaLabel').fill('Lisbon'); btn(pg, 'Continue').click()
+    btn(pg, 'Continue').click(); pg.wait_for_url('**/onboarding/privacy')
+    box = pg.get_by_role('combobox'); box.fill('Lisb'); pg.get_by_role('listbox', name='Cities').get_by_role('option').first.click(); expect(pg.get_by_test_id('place-chosen')).to_contain_text('Lisbon'); btn(pg, 'Continue').click()
     pg.wait_for_url('**/onboarding/review'); btn(pg, 'Finish setup').click(); pg.wait_for_url('**/discover', timeout=15000)
+    return handle
 
 def main():
     env = helper('env'); mail = env['MAIL']
@@ -108,11 +111,11 @@ def main():
             email = f'alice.{uuid.uuid4().hex[:6]}@lovoki-e2e.test'; state = {}
 
             def signup_and_confirm():
-                goto(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Create account').click()
+                goto(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); pg.locator('input[name=agree]').check(); btn(pg, 'Create account').click()
                 pg.wait_for_url('**/check-email'); link = mail_link(mail, email); pg.goto(link, wait_until='domcontentloaded')
                 pg.wait_for_url('**/onboarding/basics', timeout=20000)
             T('REAL email: sign-up sends a confirmation mail, the link signs the user in and opens onboarding', signup_and_confirm)
-            T('REAL onboarding through the UI with real photo uploads, finishing at the app', lambda: onboard_via_ui(pg, 'Alice Real'))
+            T('REAL onboarding through the UI with username, gender, consent, a GeoNames city and real photo uploads, finishing at the app', lambda: state.__setitem__('handle', onboard_via_ui(pg, 'Alice Real')))
             state['me'] = None
 
             def my_id():
