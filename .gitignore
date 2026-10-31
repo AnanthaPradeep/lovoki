@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-single
+.env
+.env.*
+!.env.example
+__pycache__
+*.log
+.DS_Store
