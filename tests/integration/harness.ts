@@ -55,7 +55,19 @@ export async function createUser(label: string, o: { complete?: boolean; visibil
   return u;
 }
 
+export const TERMS_VERSION = '2026-11-draft-1';
+const handleOf = (label: string) => `${label.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'user'}${randomUUID().replace(/-/g, '').slice(0, 8)}`;
+
+/** Username, consent, gender and a place: the identity a profile needs before it can be completed (Phase 3.5). */
+export async function setIdentity(u: TestUser, o: { gender?: 'woman' | 'man' | 'non-binary' | 'self-describe'; custom?: string; place?: PlaceKey | null; showGender?: boolean; showDistance?: boolean; marketing?: boolean } = {}) {
+  await rpc(u, 'set_username', { p_handle: handleOf(u.name) });
+  await rpc(u, 'record_consent', { p_terms_version: TERMS_VERSION, p_confirm_18: true, p_marketing: o.marketing ?? false });
+  await rpc(u, 'save_dating_profile', { p_gender: o.gender ?? 'woman', p_show_gender: o.showGender ?? true, p_show_distance: o.showDistance ?? true, p_gender_custom: o.custom ?? (o.gender === 'self-describe' ? 'Self described' : null) });
+  if (o.place !== null) await rpc(u, 'save_place_id', { p_place_id: await placeId(o.place ?? 'lisbon') });
+}
+
 export async function completeProfile(u: TestUser, visibility: 'public' | 'followers' = 'public', discoverable = false) {
+  await setIdentity(u);
   await rpc(u, 'save_basics', { p_display_name: u.name, p_date_of_birth: '1995-05-05', p_pronouns: '' });
   await rpc(u, 'save_about', { p_bio: `Bio of ${u.name}`, p_interests: [], p_prompts: [] });
   await rpc(u, 'save_preferences', { p_intention: 'long-term', p_interested_in: ['women'], p_age_min: 18, p_age_max: 60, p_max_distance: null });
@@ -114,8 +126,24 @@ export const PLACES = {
 } as const;
 export type PlaceKey = keyof typeof PLACES;
 
+const placeIds = new Map<PlaceKey, number>();
+/** The real GeoNames place id for a test place. Almada and Sintra are smaller than the seed threshold, so they are added once (local database only). */
+export async function placeId(k: PlaceKey): Promise<number> {
+  const hit = placeIds.get(k); if (hit) return hit;
+  let id: number;
+  if (k === 'almada' || k === 'sintra') {
+    id = k === 'almada' ? 9000001 : 9000002; const pl = PLACES[k];
+    must(await admin.from('places').upsert({ id, name: pl.label, region: 'Lisbon', country_code: 'PT', country: 'Portugal', lat: pl.lat, lng: pl.lng, population: 50000 }), 'seed test place');
+  } else {
+    const q = { lisbon: ['Lisbon', 'PT'], porto: ['Porto', 'PT'], madrid: ['Madrid', 'ES'], setubal: ['Set%bal', 'PT'] }[k];
+    const rows = must(await admin.from('places').select('id,population').ilike('name', q[0]).eq('country_code', q[1]).order('population', { ascending: false }).limit(1));
+    if (!rows[0]) throw new Error(`place ${k} not in the places seed`); id = rows[0].id as number;
+  }
+  placeIds.set(k, id); return id;
+}
+
 export interface DatingOpts {
-  gender?: 'woman' | 'man' | 'non-binary'; interestedIn?: ('women' | 'men' | 'non-binary')[]; dob?: string; ageMin?: number; ageMax?: number;
+  gender?: 'woman' | 'man' | 'non-binary' | 'self-describe'; interestedIn?: ('women' | 'men' | 'non-binary')[]; dob?: string; ageMin?: number; ageMax?: number;
   maxKm?: number | null; place?: PlaceKey | null; discoverable?: boolean; intention?: string; social?: 'public' | 'followers'; showDistance?: boolean; showGender?: boolean;
   interests?: string[]; complete?: boolean;
 }
@@ -128,8 +156,7 @@ export async function datingUser(label: string, o: DatingOpts = {}): Promise<Tes
   await rpc(u, 'save_about', { p_bio: `Bio of ${label}`, p_interests: o.interests ?? ['coffee'], p_prompts: [{ question: 'A perfect Sunday', answer: `Sunday of ${label}` }] });
   await rpc(u, 'save_preferences', { p_intention: o.intention ?? 'long-term', p_interested_in: o.interestedIn ?? ['women', 'men', 'non-binary'], p_age_min: o.ageMin ?? 18, p_age_max: o.ageMax ?? 99, p_max_distance: o.maxKm ?? null });
   await rpc(u, 'save_privacy', { p_area_label: 'Somewhere', p_social_visibility: o.social ?? 'followers', p_dating_discoverable: o.discoverable ?? true });
-  await rpc(u, 'save_dating_profile', { p_gender: o.gender ?? 'woman', p_show_gender: o.showGender ?? true, p_show_distance: o.showDistance ?? true });
-  if (o.place !== null) { const pl = PLACES[o.place ?? 'lisbon']; await rpc(u, 'save_place', { p_label: pl.label, p_lat: pl.lat, p_lng: pl.lng }); }
+  await setIdentity(u, { gender: o.gender, place: o.place, showGender: o.showGender, showDistance: o.showDistance });
   await addProfilePhoto(u);
   if (o.complete !== false) await rpc(u, 'complete_onboarding');
   return u;

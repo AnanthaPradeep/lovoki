@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { DatingFailure } from '@lovoki/core';
 import { SupabaseAccountApi } from '../../apps/web/src/data/SupabaseAccountApi';
 import { SupabaseDatingApi } from '../../apps/web/src/data/SupabaseDatingApi';
-import { datingUser, rid, type TestUser } from './harness';
+import { datingUser, placeId, rid, type TestUser } from './harness';
 
 let A: TestUser, B: TestUser; let a: SupabaseDatingApi, b: SupabaseDatingApi;
 const code = async (p: Promise<unknown>) => { try { await p; return null; } catch (e) { return e instanceof DatingFailure ? e.code : `other:${String(e)}`; } };
@@ -39,13 +39,13 @@ describe('SupabaseDatingApi against the real stack', () => {
 
 describe('account methods for the dating profile', () => {
   it('load reads gender, flags, the rounded place and filters; save methods persist them', async () => {
-    const U = await datingUser('adAcct', { place: null, gender: 'non-binary' });
+    const U = await datingUser('adAcct', { place: null, gender: 'non-binary', complete: false });
     const acct = new SupabaseAccountApi(U.sb, U.id, U.email);
     expect(await acct.load()).toMatchObject({ gender: 'non-binary', showGender: true, showDistance: true, place: null, filterIntentions: [], filterInterests: [] });
     await acct.saveDatingProfile({ gender: 'man', showGender: false, showDistance: false });
-    await acct.savePlace({ label: 'Lisbon, Portugal', lat: 38.723456, lng: -9.139876 });
+    await acct.savePlace(await placeId('lisbon'));
     await acct.saveFilters({ intentions: ['friends-first'], interests: ['Jazz', 'Coffee'] });
-    expect(await acct.load()).toMatchObject({ gender: 'man', showGender: false, showDistance: false, place: { label: 'Lisbon, Portugal', lat: 38.72, lng: -9.14 }, areaLabel: 'Lisbon, Portugal', filterIntentions: ['friends-first'], filterInterests: ['Coffee', 'Jazz'].sort() });
+    expect(await acct.load()).toMatchObject({ gender: 'man', showGender: false, showDistance: false, place: { name: 'Lisbon', country: 'Portugal' }, areaLabel: expect.stringContaining('Lisbon'), filterIntentions: ['friends-first'], filterInterests: ['Coffee', 'Jazz'].sort() });
     await acct.clearPlace(); expect((await acct.load()).place).toBeNull();
   });
 });

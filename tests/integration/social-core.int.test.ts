@@ -342,7 +342,7 @@ describe('social_profile exposes only the public view of another person', () => 
   it('shows a full card for public profiles and a name-only card for followers-only ones', async () => {
     const P = await createUser('sp'); const F = await createUser('sf', { visibility: 'followers' }); const V = await createUser('sv');
     const pub = (must(await V.sb.rpc('social_profile', { p_user: P.id })) as Record<string, unknown>[])[0]!;
-    expect(Object.keys(pub).sort()).toEqual(['age', 'area_label', 'bio', 'display_name', 'follow_status', 'follower_count', 'follows_me_status', 'following_count', 'is_self', 'photo_path', 'post_count', 'pronouns', 'restricted', 'user_id'].sort());
+    expect(Object.keys(pub).sort()).toEqual(['age', 'area_label', 'avatar_crop', 'bio', 'details', 'display_name', 'follow_status', 'follower_count', 'follows_me_status', 'following_count', 'gender', 'gender_custom', 'interests', 'is_self', 'photo_path', 'post_count', 'prompts', 'pronouns', 'restricted', 'user_id', 'username'].sort());
     expect(pub.restricted).toBe(false); expect(pub.age).toBeGreaterThanOrEqual(18); expect(pub.bio).toBe('Bio of sp');
     const lim = (must(await V.sb.rpc('social_profile', { p_user: F.id })) as Record<string, unknown>[])[0]!;
     expect(lim).toMatchObject({ restricted: true, display_name: 'sf', bio: null, age: null, photo_path: null, follower_count: null, area_label: null });

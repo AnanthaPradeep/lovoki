@@ -3,7 +3,7 @@
 // exactly when the viewer may see and like the target.
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  PLACES, admin, datingUser, discover, discoverAll, eligible, localSql, must, rawRest, rid, rpc, rpcFails, yearsAgo, type Card, type TestUser,
+  PLACES, admin, datingUser, placeId, discover, discoverAll, eligible, localSql, must, rawRest, rid, rpc, rpcFails, yearsAgo, type Card, type TestUser,
 } from './harness';
 
 const likeRes = (u: TestUser, t: TestUser) => rpc<{ matched: boolean; match_id: string | null }[]>(u, 'like_profile', { p_target: t.id }).then((r) => r[0]!);
@@ -104,15 +104,17 @@ describe('distance: buckets, max distance and rounding', () => {
     expect(await eligible(me, far), 'above 100 means no limit').toBe(true);
     await rpc(me, 'save_preferences', { p_intention: 'long-term', p_interested_in: ['women', 'men', 'non-binary'], p_age_min: 18, p_age_max: 99, p_max_distance: null });
   });
-  it('the place is rounded by the server and only the owner can read it', async () => {
+  it('a place is stored on a 5 km grid, and NO client can read any coordinates, not even the owner', async () => {
     const P = await datingUser('dsRound', { place: null });
-    await rpc(P, 'save_place', { p_label: 'Lisbon centre', p_lat: 38.723456, p_lng: -9.139876 });
-    const row = must(await P.sb.from('profile_places').select('lat,lng'))[0] as { lat: number; lng: number };
-    expect(row).toEqual({ lat: 38.72, lng: -9.14 });
-    expect(must(await me.sb.from('profile_places').select('*').eq('user_id', P.id)), 'others cannot read it').toHaveLength(0);
-    await rpcFails(P, 'save_place', { p_label: 'x', p_lat: 120, p_lng: 0 }, 'LOVOKI_INVALID');
-    await rpcFails(P, 'save_place', { p_label: '38.7234, -9.1398', p_lat: 38.72, p_lng: -9.14 }, 'LOVOKI_INVALID');
-    await rpc(P, 'clear_place'); expect(must(await P.sb.from('profile_places').select('*'))).toHaveLength(0);
+    await rpc(P, 'save_place_id', { p_place_id: await placeId('lisbon') });
+    const stored = must(await admin.from('profile_places').select('lat,lng,place_id').eq('user_id', P.id))[0] as { lat: number; lng: number; place_id: number };
+    expect(Math.round(stored.lat * 20) / 20, 'on the 0.05 degree grid').toBe(Number(stored.lat)); expect(Math.round(stored.lng * 20) / 20).toBe(Number(stored.lng));
+    expect((await rawRest(P, 'GET', 'profile_places?select=*')).status, 'owner cannot read the table').toBeGreaterThanOrEqual(400);
+    expect((await rawRest(me, 'GET', `profile_places?user_id=eq.${P.id}`)).status).toBeGreaterThanOrEqual(400);
+    const mine = await rpc<Record<string, unknown>[]>(P, 'my_place');
+    expect(Object.keys(mine[0]!).sort()).toEqual(['country', 'country_code', 'label', 'name', 'place_id', 'region']);
+    await rpcFails(P, 'save_place_id', { p_place_id: -5 }, 'LOVOKI_INVALID');
+    await rpc(P, 'clear_place'); expect(await rpc(P, 'my_place')).toEqual([]);
   });
 });
 
@@ -255,7 +257,8 @@ describe('likes and matches', () => {
       }
     }
     expect(must(await admin.from('dating_actions').select('*').eq('actor_id', A.id))).toHaveLength(0);
-    expect(must(await A.sb.from('profile_places').select('lat,lng'))[0], 'own place untouched').toEqual({ lat: 38.72, lng: -9.14 });
+    expect((await rawRest(A, 'GET', 'profile_places?select=*')).status, 'coordinates are not readable by anyone').toBeGreaterThanOrEqual(400);
+    expect(must(await admin.from('profile_places').select('user_id').eq('user_id', A.id)), 'own place untouched').toHaveLength(1);
     for (const fn of ['like_profile', 'discover_profiles', 'dating_profile', 'list_matches', 'unmatch', 'dating_status']) expect((await rawRest(null, 'POST', `rpc/${fn}`, {})).status, `anon ${fn}`).toBeGreaterThanOrEqual(400);
     for (const [fn, args] of [['_dating_eligible', { v: A.id, t: B.id }], ['_try_match', { a: A.id, b: B.id }], ['_dating_cards', { v: A.id, ids: [B.id] }]] as const) {
       expect((await rawRest(A, 'POST', `rpc/${fn}`, args)).status, `${fn} is internal`).toBeGreaterThanOrEqual(400);
@@ -424,7 +427,7 @@ describe('what the cards contain', () => {
     for (const needle of ['38.8', '-9.38', '38.72', '-9.14', '38.80']) expect(text, `coordinate fragment ${needle}`).not.toContain(needle);
     expect(text).not.toMatch(/date_of_birth|birth/i);
     const card = (await rpc<Card[]>(A, 'dating_profile', { p_user: B.id }))[0]!;
-    expect(Object.keys(card).sort()).toEqual(['age', 'area_label', 'bio', 'display_name', 'distance_bucket', 'gender', 'interests', 'intention', 'is_match', 'match_id', 'matched_at', 'photo_paths', 'prompts', 'pronouns', 'user_id'].sort());
+    expect(Object.keys(card).sort()).toEqual(['age', 'area_label', 'avatar_crop', 'avatar_path', 'bio', 'details', 'display_name', 'distance_bucket', 'gender', 'gender_custom', 'interests', 'intention', 'is_match', 'match_id', 'matched_at', 'photo_paths', 'prompts', 'pronouns', 'user_id', 'username'].sort());
     expect(['<5', '<10', '<25', '<50', '<100', '100+']).toContain(card.distance_bucket);
   });
 });
