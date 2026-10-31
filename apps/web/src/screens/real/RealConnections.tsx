@@ -65,7 +65,7 @@ function MatchesList({ onChanged }: { onChanged: () => void }) {
   if (!list.items.length) return <EmptyState icon={<HeartHandshake size={28} />} title="No matches yet" body="When you and someone both like each other, you’ll match and they’ll appear here. Likes stay private until then." action={<Link to="/discover" className="btn btn-primary">Go to Discover</Link>} />;
   return (
     <>
-      <div style={{ marginBottom: 12 }}><Notice><MessageCircle size={14} aria-hidden style={{ verticalAlign: -2, marginRight: 6 }} />Messaging arrives in Phase 5. Until then, matches are saved here.</Notice></div>
+      <div style={{ marginBottom: 12 }}><Notice>Messaging arrives in Phase 5. Until then, matches are saved here.</Notice></div>
       <ul className="card card-pad list" style={{ listStyle: 'none', margin: 0 }} aria-label="Matches">
         {list.items.map((m) => (
           <li key={m.matchId} className="list-row" style={{ flexWrap: 'wrap' }} data-testid="match-row">

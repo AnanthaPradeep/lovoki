@@ -78,5 +78,32 @@ if (cmd === 'env') {
   must(await sb.auth.signInWithPassword({ email, password: PW }), 'signIn');
   must(await sb.rpc('like_post', { p_post: postId }), 'like');
   console.log('{}');
+} else if (cmd === 'purge-test-users') { // LOCAL ONLY: removes earlier automated-test accounts so a run starts from a known crowd; reports anyone else
+  let n = 0, others = 0;
+  const list = must(await admin.auth.admin.listUsers({ perPage: 1000 }), 'list');
+  for (const u of list.users) {
+    if (/@lovoki-(e2e|it)\.test$/.test(u.email ?? '')) { await admin.auth.admin.deleteUser(u.id); n++; } else others++;
+  }
+  console.log(JSON.stringify({ removed: n, others }));
+} else if (cmd === 'dating-user') { // a fully onboarded dating user: label gender interestedIn(comma) place(lisbon|sintra|madrid)
+  const [label, gender, wants, place] = args;
+  const P = { lisbon: ['Lisbon, Portugal', 38.72, -9.14], sintra: ['Sintra, Portugal', 38.8, -9.38], madrid: ['Madrid, Spain', 40.42, -3.7] }[place ?? 'lisbon'];
+  const u = await person(label, 'public');
+  must(await u.sb.rpc('save_dating_profile', { p_gender: gender, p_show_gender: true, p_show_distance: true }), 'dating profile');
+  must(await u.sb.rpc('save_preferences', { p_intention: 'long-term', p_interested_in: wants.split(','), p_age_min: 18, p_age_max: 99, p_max_distance: null }), 'prefs');
+  must(await u.sb.rpc('save_place', { p_label: P[0], p_lat: P[1], p_lng: P[2] }), 'place');
+  must(await u.sb.rpc('save_privacy', { p_area_label: P[0], p_social_visibility: 'public', p_dating_discoverable: true }), 'discoverable');
+  console.log(JSON.stringify({ id: u.id, email: u.email, password: PW }));
+} else if (cmd === 'like-profile-as') { // that person likes a profile (dating)
+  const [email, target] = args;
+  const sb = createClient(env.API_URL, env.ANON_KEY, opts('dl'));
+  must(await sb.auth.signInWithPassword({ email, password: PW }), 'signIn');
+  console.log(JSON.stringify(must(await sb.rpc('like_profile', { p_target: target }), 'like_profile')));
+} else if (cmd === 'pause-as') {
+  const [email, on] = args;
+  const sb = createClient(env.API_URL, env.ANON_KEY, opts('pz'));
+  must(await sb.auth.signInWithPassword({ email, password: PW }), 'signIn');
+  must(await sb.rpc('save_privacy', { p_area_label: 'Lisbon', p_social_visibility: 'public', p_dating_discoverable: on === 'on' }), 'save_privacy');
+  console.log('{}');
 } else { console.error('unknown command'); process.exit(1); }
 process.exit(0);

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
 import {
   ALL_INTENTIONS, ALL_INTERESTS, DatingFailure, INTENTION_LABEL, validatePreferences, type DatingCard, type Intention, type MediaRef, type PreferencesInput,
 } from '@lovoki/core';
@@ -30,7 +29,7 @@ export function MatchDialog({ card, onClose }: { card: DatingCard | null; onClos
           <PersonAvatar name={card.displayName} url={card.photoPaths[0] ? urls.get(card.photoPaths[0]) : undefined} size={96} />
         </div>
         <p style={{ textAlign: 'center', fontSize: 'var(--fs-body-lg)' }}>You and {card.displayName} liked each other.</p>
-        <Notice><MessageCircle size={14} aria-hidden style={{ verticalAlign: -2, marginRight: 6 }} />Messaging arrives in Phase 5, so there’s no chat yet. Your match is saved and will be waiting.</Notice>
+        <Notice>Messaging arrives in Phase 5, so there’s no chat yet. Your match is saved and will be waiting.</Notice>
       </>}
     </Dialog>
   );

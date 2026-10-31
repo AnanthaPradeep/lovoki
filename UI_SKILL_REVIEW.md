@@ -120,3 +120,32 @@ Reports say "saved for review" and never claim action. Followers-only audience c
 
 ## Known visual gaps
 On 390px the feed header wraps the bell and "New post" under the title. Notification rows for likes and comments link to the profile page, not to the single post. Dark-theme contrast of the new "New" chip reuses the existing info chip and was not re-measured.
+
+
+---
+
+# Addendum: Phase 4 (dating screens)
+
+## Skills used
+The Phase 1 skills (`/mnt/skills/...`) are not on this machine, and no project design skill was found. Only the index of `anthropic-skills:ui-design-styles` was read earlier in the project (a style catalog; it names Minimalism and Dark Mode, which the approved design already is). Nothing was re-applied from the Phase 1 table. The Phase 4 screens reuse the existing tokens and components (`discover-card`, `dc-*`, `round` buttons, `Dialog`, `Menu`, `Notice`, `EmptyState`, `segmented`, `list-row`) and the existing swipe and keyboard behaviour. No redesign, no new colours.
+
+## Verified (observed in a test run; screenshots in `docs/screenshots/phase4/`)
+| Check | Evidence |
+|---|---|
+| No horizontal overflow on Discover, a person's profile, Matches, Settings, Notifications at 390, 768 and 1440 in light and dark | `scripts/dating-e2e.py` layout matrix; 390 px also with real data in `scripts/real-e2e-dating.py` |
+| 44px touch targets at 390 on those screens and in the Filters dialog | same matrix (`small_targets`) |
+| Visible focus ring on the Like and Pass buttons; arrow keys decide; Escape closes the match dialog | keyboard tests |
+| Long unbroken text stays inside the card | long-text test |
+| Loading, empty (no gender, paused, daily limit, no one new), error + retry states | dating suite |
+| Match dialog and filters dialog captured as viewport shots (full-page shots distort dialogs) | `390-light_match-dialog.jpg`, `390-light_filters.jpg` |
+| Dialog and form buttons are `type="button"`; Reset in Filters never saves; Cancel never submits | dialog tests |
+| Reduced motion | the Phase 3 test applies to every animation; the card's leave animation is not used in the real deck (cards leave at once), so there is nothing new to reduce |
+
+## Honest copy checks
+Likes are described as private ("They'll only know if they like you too"). The match dialog and the disabled "Say hello" both say "Messaging arrives in Phase 5". Empty states say "We don't invent people to fill the space" and offer widening filters. The daily limit is a calm banner with no countdown, no urgency and no upsell. Distance is always a range with "approximate".
+
+## Known visual gaps
+- The Discover header wraps the bell and Filters under the title at 390 px, as the feed does.
+- The place picker is a plain select of 30 cities, not a map or search.
+- Match photos in the list are small avatars; there is no photo carousel on the Matches tab (open the profile for all photos).
+- Toast versus sticky actions: the like and pass buttons are not sticky in the real Discover (they sit under the card), so nothing overlaps; verified by eye only.

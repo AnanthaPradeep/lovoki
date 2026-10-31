@@ -157,8 +157,9 @@ export function deckReducer(s: DeckState, a: DeckAction): DeckState {
 /** Why a deck is empty, in the order a person can act on it. */
 export type EmptyReason = 'paused' | 'needs-gender' | 'daily-limit' | 'no-one-new';
 export function emptyReason(status: DatingStatus | null, hasFilters: boolean): { reason: EmptyReason; title: string; body: string } {
-  if (status?.paused) return { reason: 'paused', title: 'Dating is paused', body: 'You’re hidden from Discover and can’t like anyone while paused. Your matches stay. Turn “Show me in Discover” back on in Settings when you’re ready.' };
-  if (status && !status.hasGender) return { reason: 'needs-gender', title: 'Add your gender to start', body: 'Discover matches people by who each of you wants to meet, so it needs your gender. It’s one tap in Settings, and you choose whether it’s shown on your profile.' };
+  // A brand-new account is both "no gender yet" and "Show me in Discover is off" (it starts off: dating is opt-in), so setup comes first.
+  if (status && !status.hasGender) return { reason: 'needs-gender', title: 'Add your gender to start', body: 'Discover matches people by who each of you wants to meet, so it needs your gender. It’s one tap in Settings, and you choose whether it’s shown on your profile. Then turn on “Show me in Discover” when you want to appear and browse. It starts off, so nobody sees you until you choose.' };
+  if (status?.paused) return { reason: 'paused', title: 'Dating is paused', body: 'You’re hidden from Discover and can’t like anyone while “Show me in Discover” is off. Your matches stay. Turn it back on in Settings when you’re ready.' };
   if (status && status.likesLeft <= 0) return { reason: 'daily-limit', title: 'That’s today’s limit', body: `You’ve used your ${status.dailyCap} likes for today. They come back gradually over the next 24 hours. You can still look through profiles and pass.` };
   return { reason: 'no-one-new', title: 'No one new for now', body: hasFilters ? 'Nobody new matches your filters. Widen your age range, distance or filters, or check back later.' : 'There’s no one new right now. Widen your age range or distance in your filters, or check back later. We don’t invent people to fill the space.' };
 }
