@@ -156,7 +156,11 @@ export function seedState(now = Date.now()): AppState {
   };
 }
 
-export const ALL_INTERESTS = Array.from(new Set(people.flatMap((p) => p.interests))).sort();
+/** Beyond the demo people's own interests, the expanded catalog (mirrors the interests table in the database). */
+const EXTRA_INTERESTS = ['Anime', 'Astronomy', 'Badminton', 'Basketball', 'Birdwatching', 'Bollywood', 'Camping', 'Carnatic music', 'Chess', 'Cricket', 'Dancing', 'Fashion', 'Fishing', 'Fitness', 'Gaming',
+  'History', 'Karaoke', 'Kabaddi', 'Knitting', 'Martial arts', 'Meditation', 'Motorcycles', 'Museums', 'Podcasts', 'Reading', 'Road trips', 'Sailing', 'Skateboarding', 'Stand-up comedy',
+  'Street photography', 'Tea', 'Tennis', 'Theatre', 'Thrifting', 'Travel', 'Trekking', 'Volleyball', 'Volunteering', 'Woodworking', 'Yoga'];
+export const ALL_INTERESTS = Array.from(new Set([...people.flatMap((p) => p.interests), ...EXTRA_INTERESTS])).sort();
 export const ALL_INTENTIONS = Object.keys({
   'long-term': 1, 'long-term-open': 1, 'short-term-open': 1, 'figuring-out': 1, 'friends-first': 1,
 }) as Intention[];

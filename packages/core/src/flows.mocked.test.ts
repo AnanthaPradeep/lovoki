@@ -8,9 +8,11 @@ const adultDob = (years: number) => { const d = new Date(); return `${d.getFullY
 const jpeg = (size = 1000) => new Blob([new Uint8Array(size)], { type: 'image/jpeg' });
 
 async function finishOnboarding(api: FakeAccountApi) {
+  await api.setUsername(`user${Math.random().toString(36).slice(2, 10)}`); await api.recordConsent('v1');
+  await api.saveDatingProfile({ gender: 'man', showGender: true, showDistance: true }); await api.savePlace(2267057);
   await api.saveBasics({ displayName: 'Pradi', dateOfBirth: adultDob(30), pronouns: '' });
   await api.savePreferences({ intention: 'long-term', interestedIn: ['women'], ageMin: 25, ageMax: 40, maxDistanceKm: null });
-  await api.savePrivacy({ areaLabel: 'Kochi', socialVisibility: 'public', datingDiscoverable: true });
+  await api.savePrivacy({ areaLabel: 'Lisbon', socialVisibility: 'public', datingDiscoverable: true });
   await api.uploadPhoto(jpeg());
 }
 
@@ -109,16 +111,16 @@ describe('onboarding persistence and resume (mocked)', () => {
   it('a refresh mid-way resumes at the saved step with saved data intact', async () => {
     const api = new FakeAccountApi();
     await api.saveBasics({ displayName: 'Pradi', dateOfBirth: adultDob(30), pronouns: '' });
-    await api.setStep('about');
+    await api.setStep('preferences');
     const reloaded = await api.load(); // what a refresh or a new login does
     expect(reloaded.displayName).toBe('Pradi');
-    expect(resumeStep(reloaded)).toBe('about');
+    expect(resumeStep(reloaded), 'held back to the first missing required step (username and gender)').toBe('basics');
   });
   it('resume is held back to the first step with a missing required field', async () => {
     const api = new FakeAccountApi();
     await api.saveBasics({ displayName: 'Pradi', dateOfBirth: adultDob(30), pronouns: '' });
     await api.setStep('review');
-    expect(resumeStep(await api.load())).toBe('preferences');
+    expect(resumeStep(await api.load())).toBe('basics');
   });
   it('cannot complete with missing fields, and the failure names them', async () => {
     const api = new FakeAccountApi();

@@ -17,3 +17,5 @@ export * from './social';
 export * from './social-fakes';
 export * from './dating';
 export * from './dating-fakes';
+export * from './profile';
+export * from './fake-places';

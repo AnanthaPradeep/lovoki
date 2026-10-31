@@ -1,11 +1,11 @@
 // UNIT and MOCKED tests for Phase 4 logic. They prove helpers, reducers and the fake's contract, not the database.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  FakeDatingApi, FakeDatingWorld, FakeSocialWorld, DatingFailure, PLACE_CHOICES, bucketLabel, bucketOf, compatible, deckReducer, effectiveMaxKm, emptyDeck, emptyReason,
+  FakeDatingApi, FakeDatingWorld, FakeSocialWorld, DatingFailure, FAKE_PLACES, fakePlaceById, bucketLabel, bucketOf, compatible, deckReducer, effectiveMaxKm, emptyDeck, emptyReason,
   haversineKm, isDiscoverCursor, matchedAgo, roundCoord, safeDiscoverCursor, wantsGender, type DatingCard, type DeckState, type Prefs,
 } from './index';
 
-const card = (n: number): DatingCard => ({ id: `c${n}`, userId: `c${n}`, displayName: `C${n}`, age: 30, gender: null, areaLabel: '', distanceBucket: null, intention: 'long-term', interests: [], prompts: [], photoPaths: [], bio: '', pronouns: null, cursor: `d|${n}` });
+const card = (n: number): DatingCard => ({ id: `c${n}`, userId: `c${n}`, displayName: `C${n}`, username: null, genderCustom: null, avatarPath: null, avatarCrop: null, details: {}, age: 30, gender: null, areaLabel: '', distanceBucket: null, intention: 'long-term', interests: [], prompts: [], photoPaths: [], bio: '', pronouns: null, cursor: `d|${n}` });
 const deck = (n: number): DeckState => deckReducer(emptyDeck(), { type: 'replace', page: { items: Array.from({ length: n }, (_, i) => card(i)), next: null } });
 
 describe('distance helpers', () => {
@@ -20,7 +20,7 @@ describe('distance helpers', () => {
     const lisbon = { lat: 38.72, lng: -9.14 };
     expect(haversineKm(lisbon, { lat: 38.68, lng: -9.16 })).toBeLessThan(5); expect(haversineKm(lisbon, { lat: 41.15, lng: -8.61 })).toBeGreaterThan(260);
     expect(haversineKm(lisbon, lisbon)).toBe(0); expect(roundCoord(38.723456)).toBe(38.72); expect(roundCoord(-9.139876)).toBe(-9.14);
-    expect(PLACE_CHOICES.every((p) => p.lat === roundCoord(p.lat) && p.lng === roundCoord(p.lng))).toBe(true);
+    expect(FAKE_PLACES.every((p) => p.lat === roundCoord(p.lat) && p.lng === roundCoord(p.lng))).toBe(true);
   });
 });
 
@@ -86,11 +86,11 @@ describe('empty states say why, honestly', () => {
 describe('FakeDatingApi follows the documented rules (MOCKED)', () => {
   let w: FakeDatingWorld; let S: FakeSocialWorld;
   let ann: string, ben: string, cy: string, dee: string; let A: FakeDatingApi, B: FakeDatingApi, C: FakeDatingApi;
-  const lisbon = { label: 'Lisbon', lat: 38.72, lng: -9.14 };
+  const lisbon = fakePlaceById(2267057)!; const sintra = { ...lisbon, id: 1, name: 'Sintra', label: 'Sintra', lat: 38.8, lng: -9.38 };
   beforeEach(() => {
     S = new FakeSocialWorld(); w = new FakeDatingWorld(S);
     ann = S.addUser({ name: 'Ann', age: 30 }).id; ben = S.addUser({ name: 'Ben', age: 32 }).id; cy = S.addUser({ name: 'Cy', age: 29 }).id; dee = S.addUser({ name: 'Dee', age: 31 }).id;
-    w.setDating(ann, { gender: 'woman', interestedIn: ['men'], place: lisbon }); w.setDating(ben, { gender: 'man', interestedIn: ['women'], place: { label: 'Sintra', lat: 38.8, lng: -9.38 } });
+    w.setDating(ann, { gender: 'woman', interestedIn: ['men'], place: lisbon }); w.setDating(ben, { gender: 'man', interestedIn: ['women'], place: sintra });
     w.setDating(cy, { gender: 'woman', interestedIn: ['women'] }); w.setDating(dee, { gender: 'man', interestedIn: ['women'], discoverable: false });
     A = new FakeDatingApi(w, ann); B = new FakeDatingApi(w, ben); C = new FakeDatingApi(w, cy);
   });

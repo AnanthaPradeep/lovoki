@@ -2,12 +2,13 @@ import { ageOn, dobError, todayLocalIso } from './age';
 import { ALL_INTERESTS, ALL_INTENTIONS } from './seed';
 import { LIMITS } from './logic';
 import type { Intention, Prompt } from './types';
-import type { Gender, Place } from './dating';
+import type { AvatarCrop, DatingFilters, Gender, PlaceHit } from './dating';
+import { GENDER_CUSTOM_MAX, validateUsername, type ProfileDetails, type VisibilityMap } from './profile';
 
-export type Step = 'basics' | 'about' | 'preferences' | 'photos' | 'privacy' | 'review';
+/** Five steps, about three minutes. Everything optional lives in "Complete your profile" on the profile page. */
+export type Step = 'basics' | 'preferences' | 'photos' | 'privacy' | 'review';
 export const STEPS: { id: Step; label: string }[] = [
-  { id: 'basics', label: 'Basics' }, { id: 'about', label: 'About you' }, { id: 'preferences', label: 'Preferences' },
-  { id: 'photos', label: 'Photos' }, { id: 'privacy', label: 'Privacy' }, { id: 'review', label: 'Review' },
+  { id: 'basics', label: 'Basics' }, { id: 'preferences', label: 'Preferences' }, { id: 'photos', label: 'Photos' }, { id: 'privacy', label: 'Place & privacy' }, { id: 'review', label: 'Review' },
 ];
 export const stepIndex = (s: Step) => STEPS.findIndex((x) => x.id === s);
 export const isStep = (s: string): s is Step => STEPS.some((x) => x.id === s);
@@ -17,6 +18,7 @@ export const INTERESTED_IN: { id: InterestedIn; label: string }[] = [
   { id: 'women', label: 'Women' }, { id: 'men', label: 'Men' }, { id: 'non-binary', label: 'Non-binary people' },
 ];
 export type SocialVisibility = 'public' | 'followers';
+export type AllowComments = 'everyone' | 'followers' | 'nobody';
 
 export const PROMPT_QUESTIONS = ['A perfect Sunday', 'I geek out on', 'Together, we could', 'My simple pleasures', 'The way to win me over', 'Green flags I look for', 'Unpopular opinion', 'Dating me is like'] as const;
 export const ACCOUNT_LIMITS = { ...LIMITS, pronouns: 30, area: 80, prompts: 3, photos: 6, distanceMax: 500 } as const;
@@ -30,39 +32,55 @@ export interface AccountPhoto { id: string; path: string; position: number; cont
 /** The signed-in owner's own record. dateOfBirth is private: it never appears in any public view. */
 export interface Account {
   userId: string; email: string | null;
-  displayName: string; pronouns: string; dateOfBirth: string | null; age: number | null;
+  username: string | null; displayName: string; pronouns: string; dateOfBirth: string | null; age: number | null;
   bio: string; interests: string[]; prompts: Prompt[];
   intention: Intention | null; interestedIn: InterestedIn[]; ageMin: number; ageMax: number; maxDistanceKm: number | null;
   areaLabel: string; socialVisibility: SocialVisibility; datingDiscoverable: boolean;
   photos: AccountPhoto[];
   onboarding: { currentStep: Step; completedAt: string | null };
-  /** Dating profile (Phase 4). gender is null until chosen; place holds the owner-rounded coordinates and is visible to the owner only. */
-  gender: Gender | null; showGender: boolean; showDistance: boolean; place: Place | null;
+  /** Gender (null until chosen), the custom label for "self-describe", and what others may see of it. */
+  gender: Gender | null; genderCustom: string | null; showGender: boolean; showDistance: boolean;
+  /** The chosen place, with no coordinates (the database never returns them). */
+  place: PlaceHit | null;
+  avatarPhotoId: string | null; avatarCrop: AvatarCrop | null;
+  details: ProfileDetails; visibility: VisibilityMap;
+  allowComments: AllowComments; showFollowerCounts: boolean;
+  /** Null until the person has accepted the terms. */
+  consent: { termsVersion: string; marketing: boolean } | null;
   filterIntentions: string[]; filterInterests: string[];
+  filterHeightMin: number | null; filterHeightMax: number | null; filterDrinking: string[]; filterSmoking: string[]; filterKids: string[];
 }
 
-export interface BasicsInput { displayName: string; dateOfBirth: string; pronouns: string }
+export const accountFilters = (a: Account): DatingFilters => ({
+  intentions: a.filterIntentions, interests: a.filterInterests, heightMin: a.filterHeightMin, heightMax: a.filterHeightMax,
+  drinking: a.filterDrinking, smoking: a.filterSmoking, kids: a.filterKids,
+});
+
+export interface BasicsInput { displayName: string; dateOfBirth: string; pronouns: string; username: string; gender: Gender | ''; genderCustom: string }
+/** What save_basics stores. Username, gender and consent have their own calls. */
+export type BasicsSave = Pick<BasicsInput, 'displayName' | 'dateOfBirth' | 'pronouns'>;
 export interface AboutInput { bio: string; interests: string[]; prompts: Prompt[] }
 export interface PreferencesInput { intention: Intention | null; interestedIn: InterestedIn[]; ageMin: number; ageMax: number; maxDistanceKm: number | null }
 export interface PrivacyInput { areaLabel: string; socialVisibility: SocialVisibility; datingDiscoverable: boolean }
-export interface DatingProfileInput { gender: Gender; showGender: boolean; showDistance: boolean }
-export interface Drafts { basics: BasicsInput; about: AboutInput; preferences: PreferencesInput; privacy: PrivacyInput }
+/** The place step edits a place, not a label: the label is derived from it. */
+export interface PrivacyDraft { place: PlaceHit | null; socialVisibility: SocialVisibility; datingDiscoverable: boolean }
+export interface DatingProfileInput { gender: Gender; genderCustom?: string | null; showGender: boolean; showDistance: boolean }
+export interface Drafts { basics: BasicsInput; about: AboutInput; preferences: PreferencesInput; privacy: PrivacyDraft }
 export type FieldErrors = Record<string, string>;
 
 export function draftsFromAccount(a: Account): Drafts {
   return {
-    basics: { displayName: a.displayName, dateOfBirth: a.dateOfBirth ?? '', pronouns: a.pronouns },
+    basics: { displayName: a.displayName, dateOfBirth: a.dateOfBirth ?? '', pronouns: a.pronouns, username: a.username ?? '', gender: a.gender ?? '', genderCustom: a.genderCustom ?? '' },
     about: { bio: a.bio, interests: [...a.interests], prompts: a.prompts.map((p) => ({ ...p })) },
     preferences: { intention: a.intention, interestedIn: [...a.interestedIn], ageMin: a.ageMin, ageMax: a.ageMax, maxDistanceKm: a.maxDistanceKm },
-    privacy: { areaLabel: a.areaLabel, socialVisibility: a.socialVisibility, datingDiscoverable: a.datingDiscoverable },
+    privacy: { place: a.place, socialVisibility: a.socialVisibility, datingDiscoverable: a.datingDiscoverable },
   };
 }
 
 // eslint-disable-next-line no-control-regex -- rejecting control characters is the purpose of this check
 const CONTROL = /[\u0000-\u001f\u007f]/;
-const COORDS = /\d{1,3}\.\d{3,}/;
 
-export function validateBasics(i: BasicsInput, today = todayLocalIso(), dobLocked = false): FieldErrors {
+export function validateBasics(i: BasicsInput, today = todayLocalIso(), dobLocked = false, opts: { requireIdentity?: boolean } = { requireIdentity: true }): FieldErrors {
   const e: FieldErrors = {};
   const n = i.displayName.trim();
   if (!n) e.displayName = 'Add the name you want people to see.';
@@ -70,6 +88,15 @@ export function validateBasics(i: BasicsInput, today = todayLocalIso(), dobLocke
   else if (CONTROL.test(n)) e.displayName = 'Remove special control characters from your name.';
   if (!dobLocked) { const d = dobError(i.dateOfBirth, today); if (d) e.dateOfBirth = d; }
   if (i.pronouns.length > ACCOUNT_LIMITS.pronouns) e.pronouns = `Keep pronouns under ${ACCOUNT_LIMITS.pronouns} characters.`;
+  if (opts.requireIdentity) {
+    const u = validateUsername(i.username); if (u) e.username = u;
+    if (!i.gender) e.gender = 'Choose your gender.';
+    else if (i.gender === 'self-describe') {
+      const c = i.genderCustom.trim();
+      if (!c) e.genderCustom = 'Tell us how you describe your gender.';
+      else if ([...c].length > GENDER_CUSTOM_MAX || CONTROL.test(c)) e.genderCustom = `Keep this under ${GENDER_CUSTOM_MAX} characters.`;
+    }
+  }
   return e;
 }
 
@@ -101,13 +128,9 @@ export function validatePreferences(i: PreferencesInput): FieldErrors {
   return e;
 }
 
-export function validatePrivacy(i: PrivacyInput): FieldErrors {
+export function validatePrivacy(i: PrivacyDraft): FieldErrors {
   const e: FieldErrors = {};
-  const a = i.areaLabel.trim();
-  if (!a) e.areaLabel = 'Add your city or region.';
-  else if (a.length > ACCOUNT_LIMITS.area) e.areaLabel = `Keep this under ${ACCOUNT_LIMITS.area} characters.`;
-  else if (COORDS.test(a)) e.areaLabel = 'Use a city or region, not coordinates.';
-  else if (CONTROL.test(a)) e.areaLabel = 'Remove special control characters.';
+  if (!i.place) e.place = 'Choose your city. Search for it by name.';
   return e;
 }
 
@@ -117,13 +140,17 @@ export interface Missing { step: Step; field: string; label: string }
 export function missingRequired(a: Account, today = todayLocalIso()): Missing[] {
   const m: Missing[] = [];
   if (!a.displayName.trim()) m.push({ step: 'basics', field: 'displayName', label: 'Add your display name' });
+  if (!a.username) m.push({ step: 'basics', field: 'username', label: 'Choose a username' });
   if (!a.dateOfBirth || dobError(a.dateOfBirth, today)) m.push({ step: 'basics', field: 'dateOfBirth', label: 'Add your date of birth (18 or over)' });
+  if (!a.gender) m.push({ step: 'basics', field: 'gender', label: 'Choose your gender' });
+  if (!a.consent) m.push({ step: 'basics', field: 'consent', label: 'Accept the terms and confirm you’re 18 or over' });
   if (!a.intention) m.push({ step: 'preferences', field: 'intention', label: 'Choose what you’re looking for' });
   if (a.interestedIn.length === 0) m.push({ step: 'preferences', field: 'interestedIn', label: 'Choose who you’d like to meet' });
   if (a.photos.length < 1) m.push({ step: 'photos', field: 'photos', label: 'Add at least one photo' });
-  if (!a.areaLabel.trim()) m.push({ step: 'privacy', field: 'areaLabel', label: 'Add your city or region' });
+  if (!a.place) m.push({ step: 'privacy', field: 'place', label: 'Choose your city' });
   return m;
 }
+export const REQUIRED_COUNT = 9;
 
 /** Where to resume: the saved step, but never past the first step that still lacks a required field. */
 export function resumeStep(a: Account, today = todayLocalIso()): Step | null {
@@ -134,16 +161,29 @@ export function resumeStep(a: Account, today = todayLocalIso()): Step | null {
   return STEPS[Math.max(0, idx)]!.id;
 }
 
-export function completionPercent(a: Account, today = todayLocalIso()): { percent: number; suggestions: string[] } {
-  const required = 6 - missingRequired(a, today).length;
-  const extras: [boolean, string][] = [
-    [a.bio.trim().length >= 40, 'Write a bio of 40 or more characters'],
-    [a.interests.length >= 3, 'Pick 3 or more interests'],
-    [a.prompts.length >= 2, 'Answer 2 prompts'],
-    [a.photos.length >= 3, 'Add 3 or more photos'],
+/** A "Complete your profile" card. Progressive, never blocking. Sensitive fields (religion) are never suggested. */
+export interface ProfileCard { id: string; title: string; body: string; done: boolean; group: string }
+export function profileCards(a: Account): ProfileCard[] {
+  const d = a.details;
+  return [
+    { id: 'about', group: 'about', title: 'Write a short bio', body: 'A line or two helps people start a conversation.', done: a.bio.trim().length >= 40 },
+    { id: 'interests', group: 'about', title: 'Pick your interests', body: 'Three or more makes it easy to find common ground.', done: a.interests.length >= 3 },
+    { id: 'prompts', group: 'about', title: 'Answer a prompt', body: 'Two answers give people something to reply to.', done: a.prompts.length >= 2 },
+    { id: 'photos', group: 'photos', title: 'Add more photos', body: 'Three or more photos is a good start.', done: a.photos.length >= 3 },
+    { id: 'avatar', group: 'photos', title: 'Choose your avatar', body: 'The small round picture next to your name.', done: a.avatarPhotoId !== null },
+    { id: 'essentials', group: 'essentials', title: 'Height, work and education', body: 'Optional. You choose who sees each one.', done: d.heightCm !== null || !!d.jobTitle || !!d.educationLevel },
+    { id: 'languages', group: 'languages', title: 'Languages you speak', body: 'Handy for finding someone you can chat easily with.', done: d.languages.length > 0 },
+    { id: 'lifestyle', group: 'lifestyle', title: 'Lifestyle', body: 'Drinking, smoking, exercise, diet and pets.', done: !!(d.drinking || d.smoking || d.exercise || d.diet || d.pets.length) },
+    { id: 'family', group: 'family', title: 'Kids and relationship style', body: 'Optional, and only if you want to share it.', done: !!(d.hasKids || d.wantsKids || d.relationshipStructure) },
+    { id: 'links', group: 'links', title: 'Instagram', body: 'Shown to your matches only, unless you choose otherwise.', done: !!d.instagramHandle },
   ];
-  const done = required + extras.filter(([ok]) => ok).length;
-  return { percent: Math.round((done / (6 + extras.length)) * 100), suggestions: extras.filter(([ok]) => !ok).map(([, s]) => s) };
+}
+
+export function completionPercent(a: Account, today = todayLocalIso()): { percent: number; suggestions: string[]; cards: ProfileCard[] } {
+  const cards = profileCards(a);
+  const required = REQUIRED_COUNT - missingRequired(a, today).length;
+  const done = required + cards.filter((c) => c.done).length;
+  return { percent: Math.round((done / (REQUIRED_COUNT + cards.length)) * 100), suggestions: cards.filter((c) => !c.done).map((c) => c.title), cards };
 }
 
 export const ageFromDob = (dob: string | null, today = todayLocalIso()) => (dob ? ageOn(dob, today) : null);

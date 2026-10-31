@@ -1,17 +1,18 @@
 import {
   DATING_LIMITS, DatingFailure, bucketOf, effectiveMaxKm, haversineKm, safeDiscoverCursor, wantsGender,
-  type DatingApi, type DatingCard, type DatingErrorCode, type DatingProfileView, type DatingStatus, type Gender, type LikeResult, type MatchView, type Place,
+  type DatingApi, type DatingCard, type DatingErrorCode, type DatingProfileView, type DatingStatus, type Gender, type LikeResult, type MatchView,
 } from './dating';
 import type { InterestedIn } from './account';
 import type { FakeSocialWorld } from './social-fakes';
 import { takePage, type Page } from './social';
+import type { FakePlace } from './fake-places';
 
 /* In-memory dating used by MOCKED tests and the dev-only UI harness. It follows the documented rules, but it is not evidence
    that the database enforces anything: only tests/integration proves that. */
 
 export interface FakeDating {
   gender: Gender | null; showGender: boolean; showDistance: boolean; interestedIn: InterestedIn[]; ageMin: number; ageMax: number; maxKm: number | null;
-  discoverable: boolean; place: Place | null; intention: string; interests: string[]; prompts: { question: string; answer: string }[]; bio: string; pronouns: string;
+  discoverable: boolean; place: FakePlace | null; intention: string; interests: string[]; prompts: { question: string; answer: string }[]; bio: string; pronouns: string;
   filterIntentions: string[]; filterInterests: string[];
 }
 const DEFAULT: FakeDating = {
@@ -96,8 +97,8 @@ export class FakeDatingApi implements DatingApi {
   private card(v: string, t: string, cursor = ''): DatingCard {
     const u = this.world.social.users.get(t)!, d = this.world.d(t), dist = this.world.distance(v, t);
     return {
-      id: t, userId: t, displayName: u.name, age: u.age, gender: d.showGender ? d.gender : null, areaLabel: d.place?.label ?? 'Somewhere', distanceBucket: dist === null ? null : bucketOf(dist),
-      intention: d.intention, interests: d.interests, prompts: d.prompts, photoPaths: [`${t}/main.jpg`], bio: d.bio, pronouns: this.world.activeMatch(v, t) ? d.pronouns : null, cursor,
+      id: t, userId: t, displayName: u.name, username: u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.'), age: u.age, gender: d.showGender ? d.gender : null, genderCustom: null, areaLabel: d.place?.name ?? 'Somewhere', distanceBucket: dist === null ? null : bucketOf(dist),
+      intention: d.intention, interests: d.interests, prompts: d.prompts, photoPaths: [`${t}/main.jpg`], avatarPath: `${t}/main.jpg`, avatarCrop: null, details: {}, bio: d.bio, pronouns: this.world.activeMatch(v, t) ? d.pronouns : null, cursor,
     };
   }
   private paused() { return !this.world.d(this.me).discoverable; }

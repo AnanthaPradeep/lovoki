@@ -12,8 +12,8 @@ const noComments = sql.replace(/--.*$/gm, '');
 describe('migration text', () => {
   const tables = [...noComments.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]!);
   it('finds the expected tables', () => expect(tables.sort()).toEqual([
-    'blocks', 'content_reports', 'dating_actions', 'dating_exclusions', 'dating_preferences', 'dating_rate', 'follows', 'interests', 'matches', 'notifications', 'onboarding_state', 'post_comments', 'post_likes',
-    'post_media', 'post_saves', 'posts', 'profile_interests', 'profile_photos', 'profile_places', 'profile_prompts', 'profiles', 'profiles_private']));
+    'blocks', 'consents', 'content_reports', 'dating_actions', 'dating_exclusions', 'dating_preferences', 'dating_rate', 'follows', 'interests', 'languages', 'matches', 'notifications', 'onboarding_state', 'places', 'post_comments', 'post_likes',
+    'post_media', 'post_saves', 'posts', 'profile_details', 'profile_interests', 'profile_photos', 'profile_places', 'profile_prompts', 'profiles', 'profiles_private', 'username_history']));
   it('enables row level security on every client-accessible table', () => {
     const looped = [...noComments.matchAll(/foreach t in array array\[([^\]]+)\]/g)].flatMap((m) => m[1]!.match(/'(\w+)'/g)!.map((s) => s.replace(/'/g, '')));
     for (const t of tables) expect(looped.includes(t) || new RegExp(`alter table public\\.${t} enable row level security`).test(noComments), t).toBe(true);
@@ -46,6 +46,19 @@ describe('migration text', () => {
     expect(p4).not.toMatch(/grant\s+(insert|update|delete|all)/i);
     expect([...p4.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1])).toEqual(['public.profile_places']);
     expect(p4).not.toMatch(/\bto\s+anon\b/i);
+  });
+  it('Phase 3.5: no client write privileges, only own-row reads, and coordinates can no longer be read by anyone', () => {
+    const p35 = readFileSync(dir + '20261104000000_phase35_identity_profile.sql', 'utf8').replace(/--.*$/gm, '');
+    expect(p35).not.toMatch(/grant\s+(insert|update|delete|all)/i);
+    expect([...p35.matchAll(/grant select on ([^;]+?) to authenticated/gi)].map((m) => m[1]!.replace(/\s+/g, ' '))).toEqual(['public.profile_details, public.consents, public.languages']);
+    expect(p35).toMatch(/revoke select on public\.profile_places from authenticated/);
+    expect(p35).not.toMatch(/to\s+anon/i);
+  });
+  it('Phase 3.5: the optional-field table has no column for anything we promised never to collect', () => {
+    const p35 = readFileSync(dir + '20261104000000_phase35_identity_profile.sql', 'utf8').replace(/--.*$/gm, '');
+    const table = /create table public\.profile_details \(([\s\S]*?)
+\);/.exec(p35)![1]!;
+    expect(table).not.toMatch(/caste|income|worth|address|gps|government|passport|aadhaar|ssn|health|sexual|immigration|biometric|face|fingerprint/i);
   });
   it('Phase 4: the named limits live in exactly one function each', () => {
     const p4 = readFileSync(dir + '20261103000000_phase4_dating.sql', 'utf8');

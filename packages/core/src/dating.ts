@@ -4,10 +4,15 @@
 
 import type { InterestedIn } from './account';
 import type { Page } from './social';
+import type { VisibleDetails } from './profile';
 
-export type Gender = 'woman' | 'man' | 'non-binary';
-export const GENDERS: { id: Gender; label: string }[] = [{ id: 'woman', label: 'Woman' }, { id: 'man', label: 'Man' }, { id: 'non-binary', label: 'Non-binary' }];
-export const genderLabel = (g: Gender | null | undefined) => GENDERS.find((x) => x.id === g)?.label ?? null;
+/** A square crop of a chosen photo: the centre as fractions of the image, and a zoom of 1 to 3. */
+export interface AvatarCrop { x: number; y: number; zoom: number }
+
+export type Gender = 'woman' | 'man' | 'non-binary' | 'self-describe';
+export const GENDERS: { id: Gender; label: string }[] = [{ id: 'woman', label: 'Woman' }, { id: 'man', label: 'Man' }, { id: 'non-binary', label: 'Non-binary' }, { id: 'self-describe', label: 'Self-describe' }];
+/** "Genderfluid" for a self-described gender, otherwise the standard label. Null when the person hides it. */
+export const genderLabel = (g: Gender | null | undefined, custom?: string | null) => (g === 'self-describe' ? (custom?.trim() || 'Self-described') : (GENDERS.find((x) => x.id === g)?.label ?? null));
 
 /** Named limits, mirrored from the database for display only. The database is authoritative. */
 export const DATING_LIMITS = { dailyLikes: 50, discoverPerHour: 120, passDays: 90, pageSize: 10 } as const;
@@ -36,23 +41,14 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
 /** Two decimals is about 1 km. The database rounds again; this is what the owner sees saved. */
 export const roundCoord = (n: number) => Math.round(n * 100) / 100;
 
-export interface Place { label: string; lat: number; lng: number }
-/** A small curated list so people can pick an approximate place without any geocoding service or device location. */
-export const PLACE_CHOICES: Place[] = [
-  { label: 'Lisbon, Portugal', lat: 38.72, lng: -9.14 }, { label: 'Porto, Portugal', lat: 41.15, lng: -8.61 }, { label: 'Madrid, Spain', lat: 40.42, lng: -3.70 },
-  { label: 'Barcelona, Spain', lat: 41.39, lng: 2.17 }, { label: 'Paris, France', lat: 48.86, lng: 2.35 }, { label: 'London, United Kingdom', lat: 51.51, lng: -0.13 },
-  { label: 'Dublin, Ireland', lat: 53.35, lng: -6.26 }, { label: 'Amsterdam, Netherlands', lat: 52.37, lng: 4.90 }, { label: 'Berlin, Germany', lat: 52.52, lng: 13.41 },
-  { label: 'Rome, Italy', lat: 41.90, lng: 12.50 }, { label: 'Vienna, Austria', lat: 48.21, lng: 16.37 }, { label: 'Stockholm, Sweden', lat: 59.33, lng: 18.07 },
-  { label: 'Warsaw, Poland', lat: 52.23, lng: 21.01 }, { label: 'Athens, Greece', lat: 37.98, lng: 23.73 }, { label: 'Istanbul, Turkey', lat: 41.01, lng: 28.98 },
-  { label: 'Kochi, India', lat: 9.93, lng: 76.27 }, { label: 'Bengaluru, India', lat: 12.97, lng: 77.59 }, { label: 'Mumbai, India', lat: 19.08, lng: 72.88 },
-  { label: 'Delhi, India', lat: 28.61, lng: 77.21 }, { label: 'Singapore', lat: 1.35, lng: 103.82 }, { label: 'Tokyo, Japan', lat: 35.68, lng: 139.65 },
-  { label: 'Sydney, Australia', lat: -33.87, lng: 151.21 }, { label: 'New York, United States', lat: 40.71, lng: -74.01 }, { label: 'Los Angeles, United States', lat: 34.05, lng: -118.24 },
-  { label: 'Toronto, Canada', lat: 43.65, lng: -79.38 }, { label: 'Mexico City, Mexico', lat: 19.43, lng: -99.13 }, { label: 'São Paulo, Brazil', lat: -23.55, lng: -46.63 },
-  { label: 'Lagos, Nigeria', lat: 6.52, lng: 3.38 }, { label: 'Nairobi, Kenya', lat: -1.29, lng: 36.82 }, { label: 'Cape Town, South Africa', lat: -33.92, lng: 18.42 },
-];
+/** A place from the places table. Clients never receive coordinates: only a label they can show. */
+export interface PlaceHit { id: number | null; name: string; region: string; countryCode: string; country: string; label: string }
+/** Mirrors the database: the area label stored on a profile is "Name, Region", at most 80 characters. */
+export const areaLabelOf = (p: Pick<PlaceHit, 'name' | 'region'>) => (p.region && p.region !== p.name ? `${p.name}, ${p.region}` : p.name).slice(0, 80);
 
 /* ------------------------------------------------------------------ compatibility hints */
 
+// A self-described gender is matched like non-binary (the database does the same).
 export const wantsGender = (g: Gender | null, wanted: InterestedIn[]) => g !== null && wanted.includes(g === 'woman' ? 'women' : g === 'man' ? 'men' : 'non-binary');
 export interface Prefs { gender: Gender | null; interestedIn: InterestedIn[]; age: number | null; ageMin: number; ageMax: number }
 /** Hard compatibility both ways (distance is separate because the real distance never reaches the client). */
@@ -66,8 +62,11 @@ export function compatible(a: Prefs, b: Prefs): boolean {
 
 export interface DatingPrompt { question: string; answer: string }
 export interface DatingCard {
-  userId: string; displayName: string; age: number; gender: Gender | null; areaLabel: string; distanceBucket: DistanceBucket | null;
+  userId: string; displayName: string; username: string | null; age: number; gender: Gender | null; genderCustom: string | null; areaLabel: string; distanceBucket: DistanceBucket | null;
   intention: string; interests: string[]; prompts: DatingPrompt[]; photoPaths: string[]; bio: string;
+  avatarPath: string | null; avatarCrop: AvatarCrop | null;
+  /** The optional fields this viewer is allowed to see, already filtered by the database. */
+  details: VisibleDetails;
   /** Only for matches (M-visibility). */
   pronouns: string | null;
   cursor: string;
@@ -79,7 +78,8 @@ export interface MatchView extends DatingCard { matchId: string; matchedAt: stri
 export interface DatingStatus { paused: boolean; hasGender: boolean; hasPlace: boolean; likesLeft: number; dailyCap: number }
 export interface LikeResult { matched: boolean; matchId: string | null }
 
-export interface DatingFilters { intentions: string[]; interests: string[] }
+export interface DatingFilters { intentions: string[]; interests: string[]; heightMin: number | null; heightMax: number | null; drinking: string[]; smoking: string[]; kids: string[] }
+export const noFilters = (): DatingFilters => ({ intentions: [], interests: [], heightMin: null, heightMax: null, drinking: [], smoking: [], kids: [] });
 
 export type DatingErrorCode =
   | 'paused' | 'profile_incomplete' | 'daily_limit' | 'rate_limited' | 'not_found' | 'invalid_cursor' | 'incomplete' | 'unauthorized' | 'network' | 'invalid' | 'unknown';
