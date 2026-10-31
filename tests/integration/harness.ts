@@ -156,9 +156,10 @@ export async function datingUser(label: string, o: DatingOpts = {}): Promise<Tes
   await rpc(u, 'save_about', { p_bio: `Bio of ${label}`, p_interests: o.interests ?? ['coffee'], p_prompts: [{ question: 'A perfect Sunday', answer: `Sunday of ${label}` }] });
   await rpc(u, 'save_preferences', { p_intention: o.intention ?? 'long-term', p_interested_in: o.interestedIn ?? ['women', 'men', 'non-binary'], p_age_min: o.ageMin ?? 18, p_age_max: o.ageMax ?? 99, p_max_distance: o.maxKm ?? null });
   await rpc(u, 'save_privacy', { p_area_label: 'Somewhere', p_social_visibility: o.social ?? 'followers', p_dating_discoverable: o.discoverable ?? true });
-  await setIdentity(u, { gender: o.gender, place: o.place, showGender: o.showGender, showDistance: o.showDistance });
+  await setIdentity(u, { gender: o.gender, place: o.place === null ? 'lisbon' : o.place, showGender: o.showGender, showDistance: o.showDistance });
   await addProfilePhoto(u);
   if (o.complete !== false) await rpc(u, 'complete_onboarding');
+  if (o.place === null) await rpc(u, 'clear_place'); // a place is required to finish onboarding; people can remove it afterwards
   return u;
 }
 
