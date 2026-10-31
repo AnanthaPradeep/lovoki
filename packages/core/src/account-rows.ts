@@ -2,13 +2,15 @@ import { ageOn, todayLocalIso } from './age';
 import { interestLabel, isStep, type Account, type AccountPhoto, type InterestedIn, type SocialVisibility } from './account';
 import { ALL_INTENTIONS } from './seed';
 import type { Intention } from './types';
+import type { Gender } from './dating';
 
 /** Row shapes returned by the database (snake_case). Kept separate from the domain model on purpose. */
 export interface AccountRows {
   userId: string; email: string | null;
   private: { date_of_birth: string | null };
-  profile: { display_name: string | null; pronouns: string; bio: string; intention: string | null; area_label: string; social_visibility: string; dating_discoverable: boolean };
-  prefs: { interested_in: string[]; age_min: number; age_max: number; max_distance_km: number | null };
+  profile: { display_name: string | null; pronouns: string; bio: string; intention: string | null; area_label: string; social_visibility: string; dating_discoverable: boolean; gender?: string | null; show_gender?: boolean; show_distance?: boolean };
+  prefs: { interested_in: string[]; age_min: number; age_max: number; max_distance_km: number | null; filter_intentions?: string[]; filter_interests?: string[] };
+  place?: { lat: number; lng: number } | null;
   onboarding: { current_step: string; completed_at: string | null };
   interests: { slug: string }[];
   prompts: { position: number; question: string; answer: string }[];
@@ -34,6 +36,10 @@ export function accountFromRows(r: AccountRows, today = todayLocalIso()): Accoun
     socialVisibility: (r.profile.social_visibility === 'followers' ? 'followers' : 'public') as SocialVisibility,
     datingDiscoverable: r.profile.dating_discoverable,
     photos,
+    gender: (['woman', 'man', 'non-binary'] as string[]).includes(r.profile.gender ?? '') ? (r.profile.gender as Gender) : null,
+    showGender: r.profile.show_gender ?? true, showDistance: r.profile.show_distance ?? true,
+    place: r.place ? { label: r.profile.area_label, lat: Number(r.place.lat), lng: Number(r.place.lng) } : null,
+    filterIntentions: r.prefs.filter_intentions ?? [], filterInterests: (r.prefs.filter_interests ?? []).map((x) => interestLabel(x)).filter((x): x is string => !!x).sort(),
     onboarding: { currentStep: isStep(r.onboarding.current_step) ? r.onboarding.current_step : 'basics', completedAt: r.onboarding.completed_at },
   };
 }

@@ -9,6 +9,7 @@ const blank = (): Account => ({
   userId: 'u1', email: 'a@example.com', displayName: '', pronouns: '', dateOfBirth: null, age: null, bio: '', interests: [], prompts: [],
   intention: null, interestedIn: [], ageMin: 18, ageMax: 60, maxDistanceKm: null, areaLabel: '', socialVisibility: 'public', datingDiscoverable: true,
   photos: [], onboarding: { currentStep: 'basics', completedAt: null },
+  gender: null, showGender: true, showDistance: true, place: null, filterIntentions: [], filterInterests: [],
 });
 const photo = (n: number) => ({ id: `p${n}`, path: `u1/p${n}.jpg`, position: n, contentType: 'image/jpeg', sizeBytes: 1000 });
 const filled = (): Account => ({ ...blank(), displayName: 'Pradi', dateOfBirth: '1996-04-18', age: 30, intention: 'long-term', interestedIn: ['women'], areaLabel: 'Kochi', photos: [photo(0)] });

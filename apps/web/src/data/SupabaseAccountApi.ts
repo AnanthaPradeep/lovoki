@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   AccountFailure, PHOTO_BUCKET, PHOTO_PATH_RE, accountFromRows, interestSlug, photoPath, sniffImageType, validateStoredPhoto,
   type AboutInput, type Account, type AccountApi, type AccountPhoto, type AccountRows, type BasicsInput, type PreferencesInput,
-  type PrivacyInput, type Step, type UserScope,
+  type PrivacyInput, type Step, type UserScope, type DatingProfileInput, type DatingFilters, type Place,
 } from '@lovoki/core';
 
 interface DbError { message?: string; code?: string; status?: number; statusCode?: string | number }
@@ -45,19 +45,20 @@ export class SupabaseAccountApi implements AccountApi {
   async load(): Promise<Account> {
     await this.rpc('ensure_account'); // repairs partially created accounts; idempotent
     const id = this.userId, sb = this.sb;
-    const [priv, prof, prefs, onb, ints, prompts, photos] = await Promise.all([
+    const [priv, prof, prefs, onb, ints, prompts, photos, place] = await Promise.all([
       sb.from('profiles_private').select('date_of_birth').eq('user_id', id).maybeSingle(),
-      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable').eq('user_id', id).maybeSingle(),
-      sb.from('dating_preferences').select('interested_in,age_min,age_max,max_distance_km').eq('user_id', id).maybeSingle(),
+      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable,gender,show_gender,show_distance').eq('user_id', id).maybeSingle(),
+      sb.from('dating_preferences').select('interested_in,age_min,age_max,max_distance_km,filter_intentions,filter_interests').eq('user_id', id).maybeSingle(),
       sb.from('onboarding_state').select('current_step,completed_at').eq('user_id', id).maybeSingle(),
       sb.from('profile_interests').select('slug').eq('user_id', id),
       sb.from('profile_prompts').select('position,question,answer').eq('user_id', id).order('position'),
       sb.from('profile_photos').select('id,storage_path,position,content_type,size_bytes').eq('user_id', id).order('position'),
+      sb.from('profile_places').select('lat,lng').eq('user_id', id).maybeSingle(),
     ]);
-    for (const r of [priv, prof, prefs, onb, ints, prompts, photos]) if (r.error) throw toAccountFailure(r.error);
+    for (const r of [priv, prof, prefs, onb, ints, prompts, photos, place]) if (r.error) throw toAccountFailure(r.error);
     if (!priv.data || !prof.data || !prefs.data || !onb.data) throw new AccountFailure('unknown', 'Your profile couldn’t be loaded. Try again.');
     const rows = { userId: id, email: this.email, private: priv.data, profile: prof.data, prefs: prefs.data, onboarding: onb.data,
-      interests: ints.data ?? [], prompts: prompts.data ?? [], photos: photos.data ?? [] } as unknown as AccountRows;
+      interests: ints.data ?? [], prompts: prompts.data ?? [], photos: photos.data ?? [], place: place.data ?? null } as unknown as AccountRows;
     const account = accountFromRows(rows);
     void this.sweepOrphans(account.photos);
     return account;
@@ -111,6 +112,11 @@ export class SupabaseAccountApi implements AccountApi {
     this.urls.set(path, { url: data.signedUrl, exp: Date.now() + 50 * 60 * 1000 });
     return data.signedUrl;
   }
+
+  async saveDatingProfile(i: DatingProfileInput) { await this.rpc('save_dating_profile', { p_gender: i.gender, p_show_gender: i.showGender, p_show_distance: i.showDistance }); }
+  async savePlace(p: Place) { await this.rpc('save_place', { p_label: p.label, p_lat: p.lat, p_lng: p.lng }); }
+  async clearPlace() { await this.rpc('clear_place'); }
+  async saveFilters(f: DatingFilters) { await this.rpc('save_dating_filters', { p_intentions: f.intentions, p_interests: f.interests.map(interestSlug) }); }
 
   async completeOnboarding() { return this.rpc<string>('complete_onboarding'); }
 

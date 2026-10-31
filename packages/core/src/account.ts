@@ -2,6 +2,7 @@ import { ageOn, dobError, todayLocalIso } from './age';
 import { ALL_INTERESTS, ALL_INTENTIONS } from './seed';
 import { LIMITS } from './logic';
 import type { Intention, Prompt } from './types';
+import type { Gender, Place } from './dating';
 
 export type Step = 'basics' | 'about' | 'preferences' | 'photos' | 'privacy' | 'review';
 export const STEPS: { id: Step; label: string }[] = [
@@ -35,12 +36,16 @@ export interface Account {
   areaLabel: string; socialVisibility: SocialVisibility; datingDiscoverable: boolean;
   photos: AccountPhoto[];
   onboarding: { currentStep: Step; completedAt: string | null };
+  /** Dating profile (Phase 4). gender is null until chosen; place holds the owner-rounded coordinates and is visible to the owner only. */
+  gender: Gender | null; showGender: boolean; showDistance: boolean; place: Place | null;
+  filterIntentions: string[]; filterInterests: string[];
 }
 
 export interface BasicsInput { displayName: string; dateOfBirth: string; pronouns: string }
 export interface AboutInput { bio: string; interests: string[]; prompts: Prompt[] }
 export interface PreferencesInput { intention: Intention | null; interestedIn: InterestedIn[]; ageMin: number; ageMax: number; maxDistanceKm: number | null }
 export interface PrivacyInput { areaLabel: string; socialVisibility: SocialVisibility; datingDiscoverable: boolean }
+export interface DatingProfileInput { gender: Gender; showGender: boolean; showDistance: boolean }
 export interface Drafts { basics: BasicsInput; about: AboutInput; preferences: PreferencesInput; privacy: PrivacyInput }
 export type FieldErrors = Record<string, string>;
 

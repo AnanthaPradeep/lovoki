@@ -51,16 +51,58 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"dating_preferences": {
+                },"dating_actions": {
                   Row: {
-                    "age_max": number,"age_min": number,"created_at": string,"interested_in": (string)[],"max_distance_km": number | null,"updated_at": string,"user_id": string
+                    "action": string,"actor_id": string,"created_at": string,"target_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "age_max"?: number,"age_min"?: number,"created_at"?: string,"interested_in"?: (string)[],"max_distance_km"?: number | null,"updated_at"?: string,"user_id": string
+                    "action": string,"actor_id": string,"created_at"?: string,"target_id": string
                   }
                   Update: {
-                    "age_max"?: number,"age_min"?: number,"created_at"?: string,"interested_in"?: (string)[],"max_distance_km"?: number | null,"updated_at"?: string,"user_id"?: string
+                    "action"?: string,"actor_id"?: string,"created_at"?: string,"target_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"dating_exclusions": {
+                  Row: {
+                    "created_at": string,"reason": string,"user_a": string,"user_b": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"reason": string,"user_a": string,"user_b": string
+                  }
+                  Update: {
+                    "created_at"?: string,"reason"?: string,"user_a"?: string,"user_b"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"dating_preferences": {
+                  Row: {
+                    "age_max": number,"age_min": number,"created_at": string,"filter_intentions": (string)[],"filter_interests": (string)[],"interested_in": (string)[],"max_distance_km": number | null,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "age_max"?: number,"age_min"?: number,"created_at"?: string,"filter_intentions"?: (string)[],"filter_interests"?: (string)[],"interested_in"?: (string)[],"max_distance_km"?: number | null,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "age_max"?: number,"age_min"?: number,"created_at"?: string,"filter_intentions"?: (string)[],"filter_interests"?: (string)[],"interested_in"?: (string)[],"max_distance_km"?: number | null,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"dating_rate": {
+                  Row: {
+                    "actor_id": string,"kind": string,"n": number,"window_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_id": string,"kind": string,"n"?: number,"window_start": string
+                  }
+                  Update: {
+                    "actor_id"?: string,"kind"?: string,"n"?: number,"window_start"?: string
                   }
                   Relationships: [
                     
@@ -89,6 +131,20 @@ export type Database = {
                   }
                   Update: {
                     "label"?: string,"slug"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"matches": {
+                  Row: {
+                    "created_at": string,"id": string,"unmatched_at": string | null,"unmatched_by": string | null,"user_a": string,"user_b": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"unmatched_at"?: string | null,"unmatched_by"?: string | null,"user_a": string,"user_b": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"unmatched_at"?: string | null,"unmatched_by"?: string | null,"user_a"?: string,"user_b"?: string
                   }
                   Relationships: [
                     
@@ -261,6 +317,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"profile_places": {
+                  Row: {
+                    "lat": number,"lng": number,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "lat": number,"lng": number,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "lat"?: number,"lng"?: number,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profile_prompts": {
                   Row: {
                     "answer": string,"position": number,"question": string,"user_id": string
@@ -277,14 +347,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "area_label": string,"bio": string,"created_at": string,"dating_discoverable": boolean,"display_name": string | null,"intention": string | null,"pronouns": string,"social_visibility": string,"updated_at": string,"user_id": string
+                    "area_label": string,"bio": string,"created_at": string,"dating_discoverable": boolean,"display_name": string | null,"gender": string | null,"intention": string | null,"pronouns": string,"show_distance": boolean,"show_gender": boolean,"social_visibility": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "area_label"?: string,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"intention"?: string | null,"pronouns"?: string,"social_visibility"?: string,"updated_at"?: string,"user_id": string
+                    "area_label"?: string,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"intention"?: string | null,"pronouns"?: string,"show_distance"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "area_label"?: string,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"intention"?: string | null,"pronouns"?: string,"social_visibility"?: string,"updated_at"?: string,"user_id"?: string
+                    "area_label"?: string,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"intention"?: string | null,"pronouns"?: string,"show_distance"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -306,15 +376,7 @@ isOneToOne: false
                 }
           }
           Views: {
-            "discoverable_profiles": {
-                  Row: {
-                    "age": number | null,"area_label": string,"bio": string,"display_name": string | null,"intention": string | null,"pronouns": string,"user_id": string
-                  }
-                  ComputedFields: never
-                  Relationships: [
-                    
-                  ]
-                },"public_profiles": {
+            "public_profiles": {
                   Row: {
                     "age": number | null,"area_label": string,"bio": string,"display_name": string | null,"intention": string | null,"pronouns": string,"user_id": string
                   }
@@ -325,8 +387,14 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "_blocked_between":
+            "_active_match":
+{ Args: { "a": string,"b": string }; Returns: string
+                           },
+"_blocked_between":
 { Args: { "p_a": string,"p_b": string }; Returns: boolean
+                           },
+"_bucket":
+{ Args: { "km": number }; Returns: string
                            },
 "_comment_count":
 { Args: { "p_post": string,"p_viewer": string }; Returns: number
@@ -340,11 +408,40 @@ isOneToOne: false
 "_cursor_ts":
 { Args: { "p_cursor": string }; Returns: string
                            },
+"_dating_cards":
+{ Args: { "ids": (string)[],"v": string }; Returns: {
+              "age": number,"area_label": string,"bio": string,"display_name": string,"distance_bucket": string,"gender": string,"intention": string,"interests": (string)[],"is_match": boolean,"photo_paths": (string)[],"prompts": Json,"pronouns": string,"user_id": string
+            }[]
+                           },
+"_dating_distance":
+{ Args: { "t": string,"v": string }; Returns: number
+                           },
+"_dating_eligible":
+{ Args: { "p_ignore_pause"?: boolean,"t": string,"v": string }; Returns: boolean
+                           },
+"_discover_cursor_day":
+{ Args: { "p_cursor": string }; Returns: string
+                           },
+"_effective_max_km":
+{ Args: { "m": number }; Returns: number
+                           },
+"_gender_wanted":
+{ Args: { "g": string,"wanted": (string)[] }; Returns: boolean
+                           },
+"_haversine_km":
+{ Args: { "lat1": number,"lat2": number,"lng1": number,"lng2": number }; Returns: number
+                           },
 "_is_completed":
 { Args: { "p_user": string }; Returns: boolean
                            },
 "_like_count":
 { Args: { "p_post": string,"p_viewer": string }; Returns: number
+                           },
+"_limit_daily_likes":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"_limit_discover_hourly":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "_make_cursor":
 { Args: { "p_id": string,"p_ts": string }; Returns: string
@@ -355,16 +452,25 @@ isOneToOne: false
 "_page_size":
 { Args: { "p_limit": number }; Returns: number
                            },
+"_pass_days":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "_post_rows":
 { Args: { "p_author": string,"p_cursor": string,"p_limit": number,"p_mode": string,"p_viewer": string }; Returns: {
               "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
             }[]
+                           },
+"_rate_hit":
+{ Args: { "p_kind": string,"p_limit": number,"p_unit": string }; Returns: undefined
                            },
 "_require_completed":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "_require_uid":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"_try_match":
+{ Args: { "a": string,"b": string }; Returns: string
                            },
 "_visible_post_author":
 { Args: { "p_post": string,"p_viewer": string }; Returns: string
@@ -387,6 +493,9 @@ isOneToOne: false
 "can_view_photos_of":
 { Args: { "p_owner": string }; Returns: boolean
                            },
+"clear_place":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "comments_page":
 { Args: { "p_cursor"?: string,"p_limit"?: number,"p_post": string }; Returns: {
               "author_id": string,"author_name": string,"body": string,"can_delete": boolean,"comment_id": string,"created_at": string,"page_cursor": string
@@ -398,6 +507,16 @@ isOneToOne: false
 "create_post":
 { Args: { "p_audience": string,"p_caption": string,"p_media_path"?: string,"p_post_id": string }; Returns: string
                            },
+"dating_profile":
+{ Args: { "p_user": string }; Returns: {
+              "age": number,"area_label": string,"bio": string,"display_name": string,"distance_bucket": string,"gender": string,"intention": string,"interests": (string)[],"is_match": boolean,"match_id": string,"matched_at": string,"photo_paths": (string)[],"prompts": Json,"pronouns": string,"user_id": string
+            }[]
+                           },
+"dating_status":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "daily_cap": number,"has_gender": boolean,"has_place": boolean,"likes_left": number,"paused": boolean
+            }[]
+                           },
 "delete_comment":
 { Args: { "p_comment": string }; Returns: undefined
                            },
@@ -406,6 +525,11 @@ isOneToOne: false
                            },
 "delete_post":
 { Args: { "p_post": string }; Returns: (string)[]
+                           },
+"discover_profiles":
+{ Args: { "p_cursor"?: string,"p_limit"?: number }; Returns: {
+              "age": number,"area_label": string,"bio": string,"display_name": string,"distance_bucket": string,"gender": string,"intention": string,"interests": (string)[],"page_cursor": string,"photo_paths": (string)[],"prompts": Json,"user_id": string
+            }[]
                            },
 "ensure_account":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -426,6 +550,11 @@ isOneToOne: false
               "like_count": number,"liked": boolean
             }[]
                            },
+"like_profile":
+{ Args: { "p_target": string }; Returns: {
+              "match_id": string,"matched": boolean
+            }[]
+                           },
 "list_blocks":
 { Args: Record<PropertyKey, never>; Returns: {
               "created_at": string,"display_name": string,"user_id": string
@@ -434,6 +563,11 @@ isOneToOne: false
 "list_follows":
 { Args: { "p_cursor"?: string,"p_kind": string,"p_limit"?: number }; Returns: {
               "created_at": string,"display_name": string,"page_cursor": string,"photo_path": string,"status": string,"user_id": string
+            }[]
+                           },
+"list_matches":
+{ Args: { "p_cursor"?: string,"p_limit"?: number }; Returns: {
+              "age": number,"area_label": string,"bio": string,"display_name": string,"distance_bucket": string,"gender": string,"intention": string,"interests": (string)[],"match_id": string,"matched_at": string,"page_cursor": string,"photo_paths": (string)[],"prompts": Json,"pronouns": string,"user_id": string
             }[]
                            },
 "mark_notifications_read":
@@ -452,6 +586,9 @@ isOneToOne: false
                            },
 "own_post_media_object_count":
 { Args: Record<PropertyKey, never>; Returns: number
+                           },
+"pass_profile":
+{ Args: { "p_target": string }; Returns: undefined
                            },
 "profile_posts_page":
 { Args: { "p_author": string,"p_cursor"?: string,"p_limit"?: number }; Returns: {
@@ -478,6 +615,15 @@ isOneToOne: false
                            },
 "save_basics":
 { Args: { "p_date_of_birth": string,"p_display_name": string,"p_pronouns"?: string }; Returns: undefined
+                           },
+"save_dating_filters":
+{ Args: { "p_intentions": (string)[],"p_interests": (string)[] }; Returns: undefined
+                           },
+"save_dating_profile":
+{ Args: { "p_gender": string,"p_show_distance": boolean,"p_show_gender": boolean }; Returns: undefined
+                           },
+"save_place":
+{ Args: { "p_label": string,"p_lat": number,"p_lng": number }; Returns: undefined
                            },
 "save_post":
 { Args: { "p_post": string }; Returns: boolean
@@ -519,6 +665,9 @@ isOneToOne: false
 { Args: { "p_post": string }; Returns: {
               "like_count": number,"liked": boolean
             }[]
+                           },
+"unmatch":
+{ Args: { "p_match": string }; Returns: undefined
                            },
 "unread_notification_count":
 { Args: Record<PropertyKey, never>; Returns: number

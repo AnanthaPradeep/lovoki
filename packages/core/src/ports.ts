@@ -1,4 +1,5 @@
-import type { Account, AccountPhoto, AboutInput, BasicsInput, PreferencesInput, PrivacyInput, Step } from './account';
+import type { Account, AccountPhoto, AboutInput, BasicsInput, DatingProfileInput, PreferencesInput, PrivacyInput, Step } from './account';
+import type { DatingFilters, Place } from './dating';
 
 export type AuthErrorCode =
   | 'invalid_credentials' | 'email_not_confirmed' | 'rate_limited' | 'weak_password' | 'same_password'
@@ -50,4 +51,9 @@ export interface AccountApi {
   /** Short-lived authorized URL for a private photo. */
   photoUrl(path: string): Promise<string>;
   completeOnboarding(): Promise<string>;
+  /** Phase 4: gender and display flags, the rounded place, and the soft discovery filters. */
+  saveDatingProfile(i: DatingProfileInput): Promise<void>;
+  savePlace(p: Place): Promise<void>;
+  clearPlace(): Promise<void>;
+  saveFilters(f: DatingFilters): Promise<void>;
 }

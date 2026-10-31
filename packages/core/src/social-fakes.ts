@@ -32,6 +32,8 @@ export class FakeSocialWorld {
   reports: { reporter: string; type: ReportTarget; target: string; reason: string; details: string }[] = [];
   private tick = 1;
   next() { return this.tick++; }
+  /** Hook for the dating fake: a block ends matches and excludes the pair. */
+  onBlock?: (a: string, b: string) => void;
 
   /** JSON-safe copy of the whole world, so the dev-only UI harness can survive a page refresh. */
   snapshot() {
@@ -238,7 +240,7 @@ export class FakeSocialApi implements SocialApi {
   async block(userId: string) {
     await this.gate('block'); const w = this.world;
     if (userId === this.me) throw err('invalid', 'You can’t block yourself.');
-    w.blocks.add(key(this.me, userId)); w.follows.delete(key(this.me, userId)); w.follows.delete(key(userId, this.me));
+    w.blocks.add(key(this.me, userId)); w.onBlock?.(this.me, userId); w.follows.delete(key(this.me, userId)); w.follows.delete(key(userId, this.me));
     w.notes = w.notes.filter((n) => !((n.recipient === this.me && n.actor === userId) || (n.recipient === userId && n.actor === this.me)));
   }
   async unblock(userId: string) { await this.gate('unblock'); this.world.blocks.delete(key(this.me, userId)); }

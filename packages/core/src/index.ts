@@ -15,3 +15,5 @@ export * from './fakes';
 export * from './account-rows';
 export * from './social';
 export * from './social-fakes';
+export * from './dating';
+export * from './dating-fakes';

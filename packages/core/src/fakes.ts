@@ -4,6 +4,7 @@ import { validatePhotoInput, validateStoredPhoto, PHOTO_RULES } from './photos';
 import { AccountFailure, AuthFailure, type AccountApi, type AccountErrorCode, type AuthApi, type AuthErrorCode, type AuthUser } from './ports';
 import { validateEmail, validatePassword } from './auth';
 import { photoDataUri } from './art';
+import { roundCoord, type DatingFilters, type Place } from './dating';
 
 /* In-memory implementations used by MOCKED tests only. They are not evidence about Supabase behaviour. */
 
@@ -78,6 +79,7 @@ export class FakeAccountApi implements AccountApi {
       userId, email, displayName: '', pronouns: '', dateOfBirth: null, age: null, bio: '', interests: [], prompts: [],
       intention: null, interestedIn: [], ageMin: 18, ageMax: 60, maxDistanceKm: null, areaLabel: '',
       socialVisibility: 'public', datingDiscoverable: true, photos: [], onboarding: { currentStep: 'basics', completedAt: null },
+      gender: null, showGender: true, showDistance: true, place: null, filterIntentions: [], filterInterests: [],
     };
   }
   failNext(code: AccountErrorCode, times = 1) { this.failing = { code, times }; }
@@ -137,6 +139,18 @@ export class FakeAccountApi implements AccountApi {
     this.account.photos = this.account.photos.filter((p) => p.id !== id).map((p, position) => ({ ...p, position }));
   }
   async photoUrl(path: string) { let h = 0; for (const c of path) h = (h * 31 + c.charCodeAt(0)) >>> 0; return photoDataUri(h % 90); }
+  async saveDatingProfile(i: Parameters<AccountApi['saveDatingProfile']>[0]) {
+    await this.gate('saveDatingProfile');
+    if (!['woman', 'man', 'non-binary'].includes(i.gender)) throw fail('invalid', 'Choose a gender.');
+    Object.assign(this.account, { gender: i.gender, showGender: i.showGender, showDistance: i.showDistance });
+  }
+  async savePlace(p: Place) {
+    await this.gate('savePlace');
+    if (!p.label.trim() || Math.abs(p.lat) > 90 || Math.abs(p.lng) > 180) throw fail('invalid', 'Choose a place.');
+    this.account.place = { label: p.label.trim(), lat: roundCoord(p.lat), lng: roundCoord(p.lng) }; this.account.areaLabel = p.label.trim();
+  }
+  async clearPlace() { await this.gate('clearPlace'); this.account.place = null; }
+  async saveFilters(f: DatingFilters) { await this.gate('saveFilters'); this.account.filterIntentions = [...f.intentions]; this.account.filterInterests = [...f.interests]; }
   async completeOnboarding() {
     await this.gate('completeOnboarding');
     const missing = missingRequired(this.account, this.today);

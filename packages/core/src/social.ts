@@ -45,7 +45,7 @@ export interface CommentView {
   id: string; authorId: string; authorName: string; body: string; createdAt: string; canDelete: boolean; cursor: string;
 }
 
-export type NotificationType = 'like' | 'comment' | 'follow' | 'follow_request' | 'follow_accepted';
+export type NotificationType = 'like' | 'comment' | 'follow' | 'follow_request' | 'follow_accepted' | 'match';
 export interface NotificationView {
   id: string; type: NotificationType; actorId: string; actorName: string; postId: string | null; commentId: string | null;
   createdAt: string; read: boolean;
@@ -297,6 +297,7 @@ export function notificationText(n: NotificationView): string {
     case 'follow': return `${n.actorName} started following you`;
     case 'follow_request': return n.followStatus === 'accepted' ? `You accepted ${n.actorName}’s follow request` : `${n.actorName} asked to follow you`;
     case 'follow_accepted': return `${n.actorName} accepted your follow request`;
+    case 'match': return `You matched with ${n.actorName}`;
   }
 }
 
