@@ -26,7 +26,7 @@ const opts = (k) => ({ auth: { persistSession: false, autoRefreshToken: false, s
 const admin = createClient(URL_, env.SERVICE_ROLE_KEY, opts('seed-admin'));
 const PW = 'seed-password-12345';
 const PNG = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
-const PLACES = [['Lisbon, Portugal', 38.72, -9.14], ['Sintra, Portugal', 38.8, -9.38], ['Setubal, Portugal', 38.52, -8.89], ['Porto, Portugal', 41.15, -8.61], ['Madrid, Spain', 40.42, -3.7]];
+const PLACES = [['Lisbon, Portugal', 'Lisbon'], ['Porto, Portugal', 'Porto'], ['Madrid, Spain', 'Madrid'], ['Barcelona, Spain', 'Barcelona'], ['Paris, France', 'Paris']];
 const GENDERS = ['woman', 'man', 'non-binary'];
 const INTENTIONS = ['long-term', 'long-term-open', 'short-term-open', 'figuring-out', 'friends-first'];
 const INTERESTS = [['coffee', 'jazz'], ['hiking', 'film'], ['cooking'], ['music', 'coding'], ['running', 'poetry']];
@@ -48,14 +48,17 @@ for (let n = 1; n <= count; n++) {
   const sb = createClient(URL_, env.ANON_KEY, opts(email));
   must(await sb.auth.signInWithPassword({ email, password: PW }), 'signIn');
   const year = new Date().getUTCFullYear() - (22 + (n % 18));
-  const [place, lat, lng] = PLACES[n % PLACES.length];
+  const [place, city] = PLACES[n % PLACES.length];
   const rpc = async (fn, args) => must(await sb.rpc(fn, args), fn);
   await rpc('save_basics', { p_display_name: `Seed Person ${n} (fake)`, p_date_of_birth: `${year}-03-15`, p_pronouns: '' });
   await rpc('save_about', { p_bio: `Fake test profile number ${n}. Not a real person.`, p_interests: INTERESTS[n % INTERESTS.length], p_prompts: [{ question: 'A perfect Sunday', answer: 'A fake Sunday for testing.' }] });
   await rpc('save_preferences', { p_intention: INTENTIONS[n % INTENTIONS.length], p_interested_in: ['women', 'men', 'non-binary'], p_age_min: 18, p_age_max: 80, p_max_distance: null });
   await rpc('save_privacy', { p_area_label: place, p_social_visibility: 'public', p_dating_discoverable: true });
   await rpc('save_dating_profile', { p_gender: GENDERS[n % GENDERS.length], p_show_gender: true, p_show_distance: true });
-  await rpc('save_place', { p_label: place, p_lat: lat, p_lng: lng });
+  await rpc('set_username', { p_handle: `seed.person.${n}` });
+  await rpc('record_consent', { p_terms_version: '2026-11-draft-1', p_confirm_18: true });
+  const found = must(await admin.from('places').select('id').ilike('name', city).order('population', { ascending: false }).limit(1), 'place lookup');
+  await rpc('save_place_id', { p_place_id: found[0].id });
   const path = `${u.id}/${randomUUID()}.png`;
   must(await sb.storage.from('profile-photos').upload(path, PNG, { contentType: 'image/png' }), 'photo');
   await rpc('register_photo', { p_path: path });

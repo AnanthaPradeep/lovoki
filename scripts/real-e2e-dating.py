@@ -30,7 +30,7 @@ def dating_person(label, gender, wants, place):
 
 def main():
     env = helper('env'); mail = env['MAIL']
-    R.HELPER_ENV.update({'LOVOKI_HELPER_API_URL': env['VITE_SUPABASE_URL'], 'LOVOKI_HELPER_ANON': env['VITE_SUPABASE_ANON_KEY'], 'LOVOKI_HELPER_SERVICE': env.pop('_service'), 'LOVOKI_HELPER_MAIL': mail})
+    R.HELPER_ENV.update({'LOVOKI_HELPER_API_URL': env['VITE_SUPABASE_URL'], 'LOVOKI_HELPER_ANON': env['VITE_SUPABASE_PUBLISHABLE_KEY'], 'LOVOKI_HELPER_SERVICE': env.pop('_service'), 'LOVOKI_HELPER_MAIL': mail})
     purged = helper('purge-test-users')
     if purged['others']:
         raise SystemExit(f"{purged['others']} other account(s) exist on this local database (for example seed users). Remove them first so the deck is predictable: node scripts/seed-local-users.mjs --remove")

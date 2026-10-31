@@ -15,6 +15,8 @@ export class FakeAuthApi implements AuthApi {
   /** When true, sign-up and password reset need a captcha token, like a project with CAPTCHA switched on. */
   captchaRequired = false;
   lastSignUp: { email: string; options?: SignUpOptions } | null = null;
+  /** What the server's sign-up trigger would have recorded from the sign-up metadata (keyed by email). */
+  consents = new Map<string, { termsVersion: string; marketing: boolean }>();
   globalSignOuts = 0;
   current: AuthUser | null = null;
   private listeners = new Set<(u: AuthUser | null, e: string) => void>();
@@ -37,7 +39,10 @@ export class FakeAuthApi implements AuthApi {
     this.lastSignUp = { email: email.toLowerCase(), options };
     if (validateEmail(email) || validatePassword(password, email)) throw new AuthFailure('weak_password', 'weak');
     const key = email.toLowerCase();
-    if (!this.users.has(key)) this.users.set(key, { id: crypto.randomUUID(), password, confirmed: false });
+    if (!this.users.has(key)) {
+      this.users.set(key, { id: crypto.randomUUID(), password, confirmed: false });
+      const c = options?.consent; if (c) this.consents.set(key, { termsVersion: c.termsVersion, marketing: !!c.marketing });
+    }
     return { needsConfirmation: true }; // identical for new and existing addresses
   }
   async signIn(email: string, password: string) {
@@ -118,7 +123,7 @@ export class FakeAccountApi implements AccountApi {
     this.account = {
       userId, email, displayName: '', pronouns: '', dateOfBirth: null, age: null, bio: '', interests: [], prompts: [],
       intention: null, interestedIn: [], ageMin: 18, ageMax: 60, maxDistanceKm: null, areaLabel: '',
-      socialVisibility: 'public', datingDiscoverable: true, photos: [], onboarding: { currentStep: 'basics', completedAt: null },
+      socialVisibility: 'public', datingDiscoverable: false, photos: [], onboarding: { currentStep: 'basics', completedAt: null },
       username: null, gender: null, genderCustom: null, showGender: true, showDistance: true, place: null, avatarPhotoId: null, avatarCrop: null,
       details: emptyDetails(), visibility: {}, allowComments: 'everyone', showFollowerCounts: true, consent: null,
       filterIntentions: [], filterInterests: [], filterHeightMin: null, filterHeightMax: null, filterDrinking: [], filterSmoking: [], filterKids: [],

@@ -24,6 +24,13 @@ const COPY: Record<Step, { title: string; body: string }> = {
   review: { title: 'Review your profile', body: 'This is how your profile will read to others. Everything else is optional and can wait.' },
 };
 
+/** A field's error goes away as soon as that field is edited, so a stale message never hides the live hint. */
+function dropChanged(errors: FieldErrors, before: object, after: object): FieldErrors {
+  const next = { ...errors }; const a = before as Record<string, unknown>; const b = after as Record<string, unknown>;
+  for (const k of Object.keys(b)) if (a[k] !== b[k]) delete next[k];
+  return next;
+}
+
 export function OnboardingRedirect() {
   const { account } = useReadyAccount();
   return <Navigate to={`/onboarding/${resumeStep(account) ?? 'basics'}`} replace />;
@@ -122,8 +129,8 @@ export function Onboarding() {
         <p className="muted" style={{ marginTop: 6 }}>{COPY[step].body}</p>
         <form className="stack" style={{ marginTop: 24, gap: 24 }} noValidate onSubmit={(e) => { e.preventDefault(); if (step === 'review') onComplete(); else onContinue(); }}>
           {fail && <Notice tone="error" action={<button type="button" className="btn btn-secondary btn-sm" onClick={step === 'review' ? onComplete : onContinue} disabled={busy}>Try again</button>}>{fail}</Notice>}
-          {step === 'basics' && <BasicsFields value={drafts.basics} onChange={(basics) => setDrafts({ ...drafts, basics })} errors={errors} api={api} currentUsername={account.username}
-            consent={needsConsent ? { agree, marketing, onAgree: setAgree, onMarketing: setMarketing } : undefined} />}
+          {step === 'basics' && <BasicsFields value={drafts.basics} onChange={(basics) => { setDrafts({ ...drafts, basics }); setErrors((er) => dropChanged(er, drafts.basics, basics)); }} errors={errors} api={api} currentUsername={account.username}
+            consent={needsConsent ? { agree, marketing, onAgree: (v: boolean) => { setAgree(v); setErrors((er) => dropChanged(er, { consent: 0 }, { consent: 1 })); }, onMarketing: setMarketing } : undefined} />}
           {step === 'preferences' && <PreferenceFields value={drafts.preferences} onChange={(preferences) => setDrafts({ ...drafts, preferences })} errors={errors} />}
           {step === 'photos' && <>
             <PhotoManager account={account} api={api} reload={reload} />

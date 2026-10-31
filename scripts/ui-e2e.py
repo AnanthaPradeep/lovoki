@@ -33,7 +33,7 @@ def btn(pg, name, exact=False): return pg.get_by_role('button', name=name, exact
 def calls(pg): return pg.evaluate('window.__fake.auth.calls')
 
 def signup_confirm_login(pg, email):
-    go(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Create account').click()
+    go(pg, '/signup'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); pg.locator('input[name=agree]').check(); btn(pg, 'Create account').click()
     pg.wait_for_url('**/check-email'); pg.evaluate(f"window.__fake.auth.confirm('{email}')")
     go(pg, '/login'); pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Log in').click()
     pg.wait_for_url('**/onboarding/basics')
@@ -44,22 +44,25 @@ def wait_photos(pg, n, timeout=9000):
 
 def cont(pg, name='Continue'): btn(pg, name).click(); pg.wait_for_timeout(250)
 
-def do_basics(pg, name='Pradi', dob='1996-04-18'):
+def do_basics(pg, name='Pradi', dob='1996-04-18', handle=None, gender='Man'):
     pg.locator('#displayName').fill(name); pg.locator('#dateOfBirth').fill(dob); pg.locator('#pronouns').fill('he/him')
+    pg.get_by_label('Username', exact=True).fill(handle or 'pradi.' + uuid.uuid4().hex[:5]); pg.get_by_label(gender, exact=True).check()
+    expect(pg.get_by_text('Available.', exact=False).first).to_be_visible()
+
+def pick_place(pg, query='Koch', label='Kochi'):
+    box = pg.get_by_role('combobox'); box.fill(query); pg.get_by_role('option').first.wait_for(); pg.keyboard.press('ArrowDown'); pg.keyboard.press('Enter')
+    expect(pg.get_by_test_id('place-chosen')).to_contain_text(label)
 
 def finish_onboarding(pg, shot=None, overflow=None):
     def snap(n):
         if shot: shot(pg, n)
         if overflow: overflow(pg, n)
     snap('onb-basics'); do_basics(pg); cont(pg)
-    pg.wait_for_url('**/onboarding/about'); snap('onb-about')
-    for i in ['Cooking', 'Music', 'Street food']: btn(pg, i, True).click()
-    btn(pg, 'Add a prompt').click(); pg.locator('#pa-0').fill('Slow coffee and a long walk with nowhere to be.')
-    pg.locator('#bio').fill('Frontend developer who writes songs at night.'); cont(pg)
-    pg.wait_for_url('**/onboarding/preferences'); pg.get_by_label('Long-term partner').check(); pg.get_by_label('Women', exact=True).check(); snap('onb-preferences'); cont(pg)
+    pg.wait_for_url('**/onboarding/preferences')
+    pg.get_by_label('Long-term partner').check(); pg.get_by_label('Women', exact=True).check(); snap('onb-preferences'); cont(pg)
     pg.wait_for_url('**/onboarding/photos'); pg.locator('input[type=file]').set_input_files([FIX + '/p1.png', FIX + '/p2.jpg'])
     wait_photos(pg, 2); snap('onb-photos'); cont(pg)
-    pg.wait_for_url('**/onboarding/privacy'); pg.locator('#areaLabel').fill('Kochi, Kerala'); snap('onb-privacy'); cont(pg)
+    pg.wait_for_url('**/onboarding/privacy'); pick_place(pg); snap('onb-privacy'); cont(pg)
     pg.wait_for_url('**/onboarding/review'); pg.wait_for_timeout(300); snap('onb-review'); btn(pg, 'Finish setup').click(); pg.wait_for_url('**/discover')
 
 def main():
@@ -92,7 +95,7 @@ def main():
             assert pg.get_by_label('Email', exact=True).get_attribute('autocomplete') == 'email'
         T('password show/hide + password-manager autocomplete attributes', show_hide)
         def signup_ok():
-            pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Create account').dblclick(); pg.wait_for_url('**/check-email')
+            pg.get_by_label('Password', exact=True).fill(PW); pg.locator('input[name=agree]').check(); btn(pg, 'Create account').dblclick(); pg.wait_for_url('**/check-email')
             assert calls(pg).count('signUp') == 1, f"signUp called {calls(pg).count('signUp')} times"
         T('sign-up succeeds; double-click makes exactly one request', signup_ok)
         def check_email():
@@ -102,7 +105,7 @@ def main():
             pg.reload(); expect(btn(pg, re.compile(r'Resend available in \d+s'))).to_be_disabled()
         T('confirmation pending: neutral copy, resend with cooldown that survives refresh', check_email)
         def neutral_existing():
-            pg2 = new_page(b); go(pg2, '/signup'); pg2.get_by_label('Email', exact=True).fill(email); pg2.get_by_label('Password', exact=True).fill('a different long password'); btn(pg2, 'Create account').click()
+            pg2 = new_page(b); go(pg2, '/signup'); pg2.get_by_label('Email', exact=True).fill(email); pg2.get_by_label('Password', exact=True).fill('a different long password'); pg2.locator('input[name=agree]').check(); btn(pg2, 'Create account').click()
             pg2.wait_for_url('**/check-email'); pg2.context.close()
         T('sign-up for an existing address looks identical (no account enumeration)', neutral_existing)
 
@@ -134,7 +137,7 @@ def main():
         def basics_validation():
             expect(pg.get_by_role('heading', name='The basics')).to_be_visible()
             assert pg.locator('li[aria-current="step"]').inner_text().strip().endswith('Basics')
-            cont(pg); expect(pg.get_by_text('Add the name you want people to see.')).to_be_visible(); expect(pg.get_by_text('Enter your date of birth.')).to_be_visible()
+            cont(pg); expect(pg.get_by_text('Add the name you want people to see.')).to_be_visible(); expect(pg.get_by_text('Enter your date of birth.')).to_be_visible(); expect(pg.get_by_text('Choose a username.')).to_be_visible(); expect(pg.get_by_text('Choose your gender.')).to_be_visible()
             pg.locator('#displayName').fill('Kid'); pg.locator('#dateOfBirth').fill('2012-01-01'); cont(pg)
             expect(pg.get_by_text('LOVOKI is for adults 18 and over.')).to_be_visible()
         T('basics: required fields and the under-18 rule', basics_validation)
@@ -142,24 +145,17 @@ def main():
             pg.locator('#dateOfBirth').fill('2999-01-01'); cont(pg); expect(pg.get_by_text('Date of birth can’t be in the future.')).to_be_visible()
         T('basics: future date rejected', dob_future)
         def basics_save_resume():
-            do_basics(pg, 'Pradi', '1996-04-18'); cont(pg); pg.wait_for_url('**/onboarding/about'); pg.reload(); pg.wait_for_url('**/onboarding/about')
-            expect(pg.get_by_role('heading', name='About you')).to_be_visible()
+            do_basics(pg, 'Pradi', '1996-04-18', 'pradi.test'); cont(pg); pg.wait_for_url('**/onboarding/preferences'); pg.reload(); pg.wait_for_url('**/onboarding/preferences')
+            expect(pg.get_by_role('heading', name='Who you’d like to meet')).to_be_visible()
         T('basics saved; refresh resumes the same step', basics_save_resume)
         def skip_ahead():
-            go(pg, '/onboarding/review'); pg.wait_for_url('**/onboarding/about')
+            go(pg, '/onboarding/review'); pg.wait_for_url('**/onboarding/preferences')
         T('cannot skip ahead of required steps (review redirects to resume point)', skip_ahead)
         def back_shows_saved():
             go(pg, '/onboarding/basics'); assert pg.locator('#displayName').input_value() == 'Pradi' and pg.locator('#dateOfBirth').input_value() == '1996-04-18'
-            go(pg, '/onboarding/about')
+            assert pg.get_by_label('Username', exact=True).input_value() == 'pradi.test' and pg.get_by_label('Man', exact=True).is_checked()
+            go(pg, '/onboarding/preferences')
         T('saved basics are restored from the account', back_shows_saved)
-        def about():
-            pg.locator('#bio').fill('x' * 305); cont(pg); expect(pg.get_by_text('5 characters over the 300 limit.')).to_be_visible()
-            pg.locator('#bio').fill('Frontend developer who writes songs at night.')
-            for i in ['Cooking', 'Music']: btn(pg, i, True).click()
-            assert btn(pg, 'Cooking', True).get_attribute('aria-pressed') == 'true'
-            btn(pg, 'Add a prompt').click(); cont(pg); expect(pg.get_by_text('Answer this prompt or remove it.')).to_be_visible()
-            pg.locator('#pa-0').fill('Slow coffee.'); cont(pg); pg.wait_for_url('**/onboarding/preferences')
-        T('about: limits, interests, prompt validation, then continue', about)
         def prefs():
             cont(pg); expect(pg.get_by_text('Choose what you’re looking for.')).to_be_visible(); expect(pg.get_by_text('Choose who you’d like to meet.')).to_be_visible()
             pg.get_by_label('Long-term partner').check(); pg.get_by_role('button', name='Select everyone').click()
@@ -207,12 +203,10 @@ def main():
             expect(pg.locator('.photo-add')).to_have_count(1)
         T('photos: the sixth photo hides the add tile', photos_limit)
         def privacy():
-            cont(pg); pg.wait_for_url('**/onboarding/privacy'); expect(pg.get_by_text('We don’t ask for your device location')).to_be_visible(); cont(pg); expect(pg.get_by_text('Add your city or region.')).to_be_visible()
-            expect(pg.locator('#areaLabel')).to_be_visible(); pg.locator('#areaLabel').fill(''); expect(pg.get_by_text('Add your city or region.')).to_be_visible()
-            pg.locator('#areaLabel').fill('9.931233, 76.267304'); cont(pg); expect(pg.get_by_text('Use a city or region, not coordinates.')).to_be_visible()
-            assert pg.evaluate("typeof navigator.geolocation !== 'undefined' && !window.__geoAsked")
-            pg.locator('#areaLabel').fill('Kochi, Kerala'); pg.get_by_label('Followers only', exact=False).check(); cont(pg); pg.wait_for_url('**/onboarding/review')
-        T('privacy: manual place only, no coordinates, no location permission prompt, separate toggles', privacy)
+            cont(pg); pg.wait_for_url('**/onboarding/privacy'); expect(pg.get_by_text('Your browser asks only when you click.')).to_be_visible(); cont(pg); expect(pg.get_by_text('Choose your city.')).to_be_visible()
+            assert pg.evaluate("!window.__geoAsked"), 'no location prompt before the button is clicked'
+            pick_place(pg); pg.get_by_label('Followers only', exact=False).check(); cont(pg); pg.wait_for_url('**/onboarding/review')
+        T('privacy: city comes from the place list (never typed free text or coordinates), no location prompt, separate toggles', privacy)
         def review():
             expect(pg.get_by_role('heading', name='Review your profile')).to_be_visible(); expect(pg.get_by_role('heading', name='Pradi, 30')).to_be_visible()
             expect(pg.get_by_text('Age is self-declared and not verified.')).to_be_visible()
@@ -220,7 +214,7 @@ def main():
             btn(pg, 'Finish setup').click(); pg.wait_for_url('**/discover')
         T('review: preview shows age (never the birth date); finishing opens the app', review)
         def honest_discover():
-            expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible()
+            expect(pg.get_by_role('heading', name='Dating is paused')).to_be_visible()
             body = pg.inner_text('body'); assert not any(n in body for n in ['Maya', 'Kofi', 'Sofía', 'Arjun']), 'no demo people in real mode'
             go(pg, '/messages'); expect(pg.get_by_role('heading', name='Messaging isn’t live yet')).to_be_visible()
             go(pg, '/feed'); expect(pg.get_by_role('heading', name='Feed', exact=True)).to_be_visible()
@@ -258,9 +252,9 @@ def main():
             expect(pg.get_by_role('heading', name='Discard your changes?')).to_have_count(0)
         T('edit: Discard leaves without saving', edit_discard)
         def settings():
-            go(pg, '/settings'); sw = pg.get_by_label('Show me in Discover'); assert sw.is_checked(), 'discoverable should start on'; sw.click()
+            go(pg, '/settings'); sw = pg.get_by_label('Show me in Discover'); assert not sw.is_checked(), 'discoverable starts off until chosen'; sw.click()
             expect(pg.get_by_text('Privacy settings saved.')).to_be_visible(); pg.reload(); pg.wait_for_timeout(500)
-            assert not pg.get_by_label('Show me in Discover').is_checked(), 'discoverable off should persist across refresh'
+            assert pg.get_by_label('Show me in Discover').is_checked(), 'discoverable on should persist across refresh'
             btn(pg, 'Followers').click(); pg.wait_for_timeout(300); btn(pg, 'Dark').click()
             assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
             pg.reload(); pg.wait_for_timeout(400); assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'theme persists'
@@ -282,7 +276,7 @@ def main():
             pg.get_by_label('Email', exact=True).fill(email); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Log in').click(); pg.wait_for_url('**/me/edit')
         T('login returns to the originally requested page', login_next)
         def session_restore():
-            pg.reload(); expect(pg.get_by_role('heading', name='Edit profile')).to_be_visible(); go(pg, '/me'); expect(pg.get_by_role('heading', name='Your profile')).to_be_visible()
+            pg.reload(); expect(pg.get_by_role('heading', name='Edit profile', exact=True)).to_be_visible(); go(pg, '/me'); expect(pg.get_by_role('heading', name='Your profile', exact=True)).to_be_visible()
         T('session is restored after a refresh', session_restore)
         def expired_session():
             pg.evaluate("window.__fake.auth.current = null; window.__fake.auth.emit('SIGNED_OUT')"); pg.wait_for_url(re.compile(r'/login')); 
@@ -331,7 +325,7 @@ def visuals():
             for r, n in [('/welcome', 'welcome'), ('/login', 'login'), ('/forgot-password', 'forgot'), ('/auth/callback?code=bad', 'callback-error')]:
                 go(pg, r); shot(pg, n); ovf(pg, n)
             go(pg, '/signup'); btn(pg, 'Create account').click(); pg.wait_for_timeout(200); shot(pg, 'signup-errors'); ovf(pg, 'signup-errors')
-            em = f'v{uuid.uuid4().hex[:6]}@example.com'; pg.get_by_label('Email', exact=True).fill(em); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Create account').click(); pg.wait_for_url('**/check-email'); shot(pg, 'check-email'); ovf(pg, 'check-email')
+            em = f'v{uuid.uuid4().hex[:6]}@example.com'; pg.get_by_label('Email', exact=True).fill(em); pg.get_by_label('Password', exact=True).fill(PW); pg.locator('input[name=agree]').check(); btn(pg, 'Create account').click(); pg.wait_for_url('**/check-email'); shot(pg, 'check-email'); ovf(pg, 'check-email')
             pg.evaluate(f"window.__fake.auth.confirm('{em}')"); go(pg, '/login'); pg.get_by_label('Email', exact=True).fill(em); pg.get_by_label('Password', exact=True).fill(PW); btn(pg, 'Log in').click(); pg.wait_for_url('**/onboarding/basics')
             cont(pg); pg.wait_for_timeout(150); shot(pg, 'onb-basics-errors'); ovf(pg, 'onb-basics-errors')
             finish_onboarding(pg, shot, ovf)

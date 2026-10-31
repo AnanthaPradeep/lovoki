@@ -45,8 +45,8 @@ seedDating();
 try {
   const raw = localStorage.getItem(KEY);
   if (raw) {
-    const s = JSON.parse(raw) as { users: [string, { id: string; password: string; confirmed: boolean }][]; current: AuthUser | null; accounts: [string, FakeAccountApi['account']][] };
-    auth.users = new Map(s.users); auth.current = s.current;
+    const s = JSON.parse(raw) as { users: [string, { id: string; password: string; confirmed: boolean }][]; current: AuthUser | null; accounts: [string, FakeAccountApi['account']][]; consents?: [string, { termsVersion: string; marketing: boolean }][] };
+    auth.users = new Map(s.users); auth.current = s.current; auth.consents = new Map(s.consents ?? []);
     s.accounts.forEach(([id, a]) => { const f = new FakeAccountApi(id, a.email); f.latencyMs = 120; f.account = a; accounts.set(id, f); });
   }
   const w = localStorage.getItem(KEY + '.world');
@@ -55,7 +55,7 @@ try {
   if (dw) dworld.restore(JSON.parse(dw));
 } catch { /* start clean */ }
 
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ users: [...auth.users], current: auth.current, accounts: [...accounts].map(([id, f]) => [id, f.account]) })); } catch { /* ignore */ } };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ users: [...auth.users], consents: [...auth.consents], current: auth.current, accounts: [...accounts].map(([id, f]) => [id, f.account]) })); } catch { /* ignore */ } };
 setInterval(save, 100);
 addEventListener('pagehide', save);
 const saveWorld = () => { try { localStorage.setItem(KEY + '.world', JSON.stringify(world.snapshot())); } catch { /* ignore */ } };
@@ -66,7 +66,7 @@ addEventListener('pagehide', saveWorld);
 
 const make = (u: AuthUser) => {
   let f = accounts.get(u.id);
-  if (!f) { f = new FakeAccountApi(u.id, u.email); f.latencyMs = 120; accounts.set(u.id, f); }
+  if (!f) { f = new FakeAccountApi(u.id, u.email); f.latencyMs = 120; f.account.consent = auth.consents.get((u.email ?? '').toLowerCase()) ?? null; accounts.set(u.id, f); }
   return f;
 };
 

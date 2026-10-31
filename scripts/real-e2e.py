@@ -95,7 +95,7 @@ def onboard_via_ui(pg, name):
 
 def main():
     env = helper('env'); mail = env['MAIL']
-    HELPER_ENV.update({'LOVOKI_HELPER_API_URL': env['VITE_SUPABASE_URL'], 'LOVOKI_HELPER_ANON': env['VITE_SUPABASE_ANON_KEY'], 'LOVOKI_HELPER_SERVICE': env.pop('_service'), 'LOVOKI_HELPER_MAIL': mail})  # in memory only
+    HELPER_ENV.update({'LOVOKI_HELPER_API_URL': env['VITE_SUPABASE_URL'], 'LOVOKI_HELPER_ANON': env['VITE_SUPABASE_PUBLISHABLE_KEY'], 'LOVOKI_HELPER_SERVICE': env.pop('_service'), 'LOVOKI_HELPER_MAIL': mail})  # in memory only
     try: urllib.request.urlopen(BASE + '/', timeout=1); raise SystemExit('Port 5173 is already serving something. Stop it first (the local auth redirect allow-list needs this exact origin).')
     except SystemExit: raise
     except Exception: pass
