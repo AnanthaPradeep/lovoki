@@ -149,3 +149,28 @@ Likes are described as private ("They'll only know if they like you too"). The m
 - The place picker is a plain select of 30 cities, not a map or search.
 - Match photos in the list are small avatars; there is no photo carousel on the Matches tab (open the profile for all photos).
 - Toast versus sticky actions: the like and pass buttons are not sticky in the real Discover (they sit under the card), so nothing overlaps; verified by eye only.
+
+# Addendum: Phase 3.5 (identity, profile data, account security)
+
+## Skills used
+Same as Phase 4: the Phase 1 design skills (`/mnt/skills/...`) are **not on this machine**, and only the *index* of `anthropic-skills:ui-design-styles` (a style catalog) was read in this project. No style from it was applied: Phase 3.5 reuses the existing tokens (plum `#381932`, milk `#FFF3E6`), components and layout rules, with no redesign.
+
+## Verified (observed in test runs; screenshots in `docs/screenshots/run/`, produced by `python scripts/identity-e2e.py --visuals`)
+| Check | Evidence |
+|---|---|
+| No horizontal overflow on Terms, Privacy, onboarding basics (username/gender/consent), My profile with the completeness cards, Edit profile with all detail groups, Settings with Account security, `/@handle` and `/p/:id` at 390, 768 and 1440 in light and dark | `identity-e2e.py` visuals |
+| 44px touch targets at 390 on those screens (the chosen-city chip's remove button was 32px: fixed) | same, plus the `social-e2e.py` and `dating-e2e.py` matrices |
+| Place picker is a combobox: `role=combobox`, `aria-expanded`, `aria-autocomplete=list`, listbox of options, arrow keys, Enter selects, Escape closes, focus returns to the field after removing the city | `identity-e2e.py` |
+| Username field: no auto-capitalisation, availability announced through a polite live region; a stale error no longer hides the live "Available." message (found and fixed in this phase) | `identity-e2e.py`, `ui-e2e.py` |
+| "Use my current location": nothing is asked until the button is clicked; refusal is handled calmly; only the chosen city is stored | `identity-e2e.py` with a stubbed geolocation |
+| Toasts do not overlap the bottom bar or a sticky save bar at 390 (settings, edit profile) | `identity-e2e.py` (automated; previously "by eye only") |
+| Contrast of the "New" chip: **5.72:1 light, 7.44:1 dark** (needs 4.5:1), measured from the page's computed colours, so no change was needed | `identity-e2e.py` asserts it in both themes |
+| Log out everywhere asks first and Cancel does nothing | `identity-e2e.py` |
+
+## Honest copy checks
+Terms and Privacy both carry a visible "DRAFT, needs legal review" banner. The Privacy draft states what is never collected. Account security shows only real controls (no device list, no 2FA, because the platform offers neither), and email change says plainly that **both** addresses must confirm. Religion is described as off by default, display-only, never a filter.
+
+## Known visual gaps
+- The detail editor is long on a phone: groups are fieldsets in one scroll with anchors from the Complete-your-profile cards, not collapsible sections.
+- Avatar crop is a position and zoom control, not a drag-to-crop canvas.
+- Only Chromium was used; not looked at on a real device or in Safari or Firefox.

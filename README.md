@@ -11,7 +11,7 @@ npm install
 npm run dev:demo        # sample data on http://127.0.0.1:5175 (no Supabase)
 npm run web             # the mode in apps/web/.env.local, default demo, http://localhost:5173
 ```
-Real mode: copy `apps/web/.env.example` to `apps/web/.env.local`, set `VITE_LOVOKI_MODE=supabase` plus the URL and **anon** key, apply the migration to a development project, and follow `docs/PHASE_2_SETUP.md`. A broken real-mode configuration shows an error screen. It never silently becomes demo.
+Real mode: copy `apps/web/.env.example` to `apps/web/.env.local`, set `VITE_LOVOKI_MODE=supabase` plus the URL and the **publishable** key (`VITE_SUPABASE_PUBLISHABLE_KEY`; the legacy `VITE_SUPABASE_ANON_KEY` still works), apply the migration to a development project, and follow `docs/PHASE_2_SETUP.md`. A broken real-mode configuration shows an error screen. It never silently becomes demo.
 
 ## Commands
 ```sh
@@ -28,6 +28,7 @@ Browser tests (Python + Playwright: `pip install playwright && playwright instal
 ```sh
 npm run dev:demo   &   npm run e2e:demo      # 31 demo checks
 npm run dev:uitest &   npm run e2e:real-ui   # 49 real-mode UI checks, driven by in-memory fakes
+python scripts/identity-e2e.py               # Phase 3.5: username, consent, place picker, profile details, account security, /@handle, /p/:id (+ --visuals, --captcha-port=N)
 python scripts/social-e2e.py                 # Phase 3 screens on fakes + layout matrix
 python scripts/dating-e2e.py                 # Phase 4 screens on fakes + layout matrix
 python scripts/real-e2e.py                   # real-mode UI against the LOCAL Supabase stack (Phase 3)
@@ -47,7 +48,7 @@ apps/web          React 19 + TypeScript + Vite
   src/data        Supabase adapters (the only place that imports supabase-js)
   src/auth, account, routes   providers and the route gate
 supabase/         migrations/ (schema, RLS, functions, views, storage) and tests/ (local Postgres suite)
-docs/             PHASE_2_SETUP.md, screenshots/
+docs/             PHASE_2_SETUP.md ... PHASE_4_SETUP.md, PHASE_3_5_NOTES.md, HOSTED_SETUP.md, research/, screenshots/
 ```
 Screens depend on the ports in `@lovoki/core`, never on the SDK. Swapping the backend means writing another adapter.
 
@@ -60,7 +61,8 @@ Screens depend on the ports in `@lovoki/core`, never on the SDK. Swapping the ba
 | Feed, posts, likes, saves, comments, follows, notifications, reports, blocks | Sample data, local only | Real (Postgres, RLS, private Storage) |
 | Discover, likes and passes, matches, unmatch, pause, filters, approximate distance | Sample data, local only | Real (Postgres, RLS, private Storage) |
 | Chat | Sample data, local only | Not built: an honest Phase 5 screen |
-| Verification, account deletion | Demo labels only | Not built |
+| Usernames and `/@handle`, consent record, city picker (GeoNames), optional profile details with audiences, account security | n/a | Real (Postgres, RLS, GoTrue) |
+| Verification, account deletion, Google sign-in | Demo labels only | Not built |
 
 Demo people are fictional adults with generated artwork. Nothing in demo mode is sent anywhere.
 

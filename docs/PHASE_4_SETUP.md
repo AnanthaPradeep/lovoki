@@ -4,6 +4,8 @@ Web only. Realtime chat (Phase 5) and release prep (Phase 6) are **not** built. 
 
 ## 0. Read this first: what was invented
 
+> **Superseded by Phase 3.5.** The minimal gender/place/visibility decisions below were replaced: the 30-city list and `save_place(label, lat, lng)` are gone (a GeoNames `places` table and `save_place_id` replaced them, stored on a ~5 km grid), gender is chosen in onboarding, and per-field audiences exist. See `docs/PHASE_3_5_NOTES.md`. This section is kept as history.
+
 The Phase 4 brief assumed a finished "Phase 3.5" (gender, rounded place coordinates, P/M field visibility). **This repository had none of it**, so a minimal version was built inside the Phase 4 migration. Everything below marked *invented* is a decision for you to review:
 
 | Invented | Decision |
