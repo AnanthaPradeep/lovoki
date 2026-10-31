@@ -12,7 +12,7 @@ const noComments = sql.replace(/--.*$/gm, '');
 describe('migration text', () => {
   const tables = [...noComments.matchAll(/create table public\.(\w+)/g)].map((m) => m[1]!);
   it('finds the expected tables', () => expect(tables.sort()).toEqual([
-    'blocks', 'consents', 'content_reports', 'dating_actions', 'dating_exclusions', 'dating_preferences', 'dating_rate', 'follows', 'interests', 'languages', 'matches', 'notifications', 'onboarding_state', 'places', 'post_comments', 'post_likes',
+    'app_config', 'blocks', 'consents', 'content_reports', 'dating_actions', 'dating_exclusions', 'dating_preferences', 'dating_rate', 'follows', 'interests', 'languages', 'matches', 'notifications', 'onboarding_state', 'places', 'post_comments', 'post_likes',
     'post_media', 'post_saves', 'posts', 'profile_details', 'profile_interests', 'profile_photos', 'profile_places', 'profile_prompts', 'profiles', 'profiles_private', 'username_history']));
   it('enables row level security on every client-accessible table', () => {
     const looped = [...noComments.matchAll(/foreach t in array array\[([^\]]+)\]/g)].flatMap((m) => m[1]!.match(/'(\w+)'/g)!.map((s) => s.replace(/'/g, '')));

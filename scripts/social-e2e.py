@@ -148,7 +148,7 @@ def main(visuals_only=False):
             def settings_blocked():
                 go(pg, '/settings'); li = pg.get_by_role('list', name='Blocked accounts'); expect(li.get_by_text('Ana Test')).to_be_visible()
                 li.get_by_role('button', name='Unblock').click(); expect(pg.get_by_text('You haven’t blocked anyone.')).to_be_visible()
-                go(pg, f"/u/{SEED['ana']}"); expect(pg.get_by_role('heading', name=re.compile('^Ana Test'))).to_be_visible()
+                go(pg, f"/u/{SEED['ana']}"); expect(pg.get_by_test_id('handle')).to_have_text('@ana.test')
             T('settings: blocked accounts list with Unblock; unblocking restores the profile', settings_blocked)
 
             # ------------------------------------------------------------------ composer
@@ -192,17 +192,17 @@ def main(visuals_only=False):
 
             # ------------------------------------------------------------------ M4 people
             def other_profile():
-                go(pg, f"/u/{SEED['ana']}"); expect(pg.get_by_role('heading', name=re.compile('^Ana Test, 31'))).to_be_visible()
+                go(pg, f"/u/{SEED['ana']}"); expect(pg.get_by_test_id('handle')).to_have_text('@ana.test'); expect(pg.get_by_text('Ana Test, 31', exact=True)).to_be_visible()
                 html = pg.content().lower(); assert 'date_of_birth' not in html and 'dateofbirth' not in html and 'discoverab' not in html, 'no private fields in the DOM'
                 expect(pg.get_by_test_id('counts')).to_contain_text('posts'); btn(pg, 'Follow', True).click()
-                expect(pg.get_by_role('button', name='Following')).to_have_attribute('aria-pressed', 'true'); expect(pg.get_by_text('Ana public post 18')).to_be_visible()
+                expect(pg.get_by_role('button', name='Following', exact=True)).to_be_visible(); expect(pg.get_by_role('link', name=re.compile('Ana public post 18'))).to_be_visible()
             T('profile of another person: social fields only, follow works, posts listed', other_profile)
 
             def restricted_profile():
-                go(pg, f"/u/{SEED['ben']}"); expect(pg.get_by_role('heading', name='Ben Test')).to_be_visible(); expect(pg.get_by_text('This profile is followers-only')).to_be_visible()
-                assert 'Test profile: Ben Test' not in pg.inner_text('main'), 'bio hidden until accepted'; expect(pg.get_by_text('Ben post')).to_have_count(0)
-                btn(pg, 'Request to follow').click(); expect(pg.get_by_role('button', name='Requested')).to_be_visible(); expect(pg.get_by_text('Your request is waiting')).to_be_visible()
-            T('followers-only profile: name only, request to follow, shows Requested', restricted_profile)
+                go(pg, f"/u/{SEED['ben']}"); expect(pg.get_by_test_id('handle')).to_have_text('@ben.test'); expect(pg.get_by_role('heading', name='This account is private')).to_be_visible()
+                assert 'Test profile: Ben Test' in pg.inner_text('main'), 'D3: the bio of a private account stays visible'; expect(pg.get_by_text('Ben post')).to_have_count(0); expect(pg.locator('.pgrid-tile')).to_have_count(0)
+                btn(pg, 'Request to follow').click(); expect(pg.get_by_role('button', name='Requested')).to_be_visible(); expect(pg.get_by_role('heading', name='Request sent')).to_be_visible()
+            T('private profile: handle, name and bio, lock panel, request to follow, shows Requested', restricted_profile)
 
             def connections_lists():
                 go(pg, '/connections'); expect(pg.get_by_role('heading', name='Connections')).to_be_visible()
@@ -214,7 +214,7 @@ def main(visuals_only=False):
             T('connections: Following with requested state, cancel, unfollow; Matches is honestly empty', connections_lists)
 
             def requests_flow():
-                go(pg, '/settings'); pg.get_by_role('group', name='Social visibility').get_by_role('button', name='Followers').click(); expect(pg.get_by_text('Privacy settings saved.')).to_be_visible()
+                go(pg, '/settings'); pg.get_by_role('group', name='Social visibility').get_by_role('button', name='Private').click(); expect(pg.get_by_text('Your account is private.')).to_be_visible()
                 world(pg, f"{{ w.follows.set('{SEED['cleo']}>' + me, 'pending'); w.notify(me, '{SEED['cleo']}', 'follow_request'); w.follows.set('{SEED['ben']}>' + me, 'pending'); w.notify(me, '{SEED['ben']}', 'follow_request'); }}")
                 go(pg, '/connections'); pg.get_by_role('tab', name=re.compile('^Requests')).click(); expect(pg.get_by_test_id('person-row')).to_have_count(2)
                 pg.get_by_test_id('person-row').filter(has_text='Cleo').get_by_role('button', name='Accept').click(); expect(pg.get_by_test_id('person-row')).to_have_count(1)
@@ -223,7 +223,7 @@ def main(visuals_only=False):
                 pg.get_by_role('tab', name=re.compile('^Followers')).click(); expect(pg.get_by_test_id('person-row')).to_have_count(1)
                 pg.get_by_test_id('person-row').get_by_role('button', name='Remove').click(); pg.get_by_role('dialog').get_by_role('button', name='Remove').click()
                 expect(pg.get_by_role('heading', name='No followers yet')).to_be_visible()
-                go(pg, '/settings'); pg.get_by_role('group', name='Social visibility').get_by_role('button', name='Public').click(); expect(pg.get_by_text('Privacy settings saved.')).to_be_visible()
+                go(pg, '/settings'); pg.get_by_role('group', name='Social visibility').get_by_role('button', name='Public').click(); expect(pg.get_by_text('Your account is public.')).to_be_visible()
             T('requests: accept, decline, remove follower, with counts', requests_flow)
 
             def notifications_flow():
@@ -284,7 +284,7 @@ def main(visuals_only=False):
                 def layout():
                     go(lp, path_)
                     if name == 'explore': lp.get_by_role('tab', name='Explore').click(); wait_posts(lp, 15)
-                    if name == 'profile': wait_posts(lp, 1)
+                    if name == 'profile': lp.wait_for_selector('.pgrid-tile', timeout=6000)
                     lp.wait_for_timeout(350)
                     o = overflow(lp); assert o <= 0, f'{tag} {name}: horizontal overflow {o}px'
                     if w_ == 390:

@@ -9,3 +9,4 @@ __pycache__
 .DS_Store
 docs/screenshots/run/
 scripts/.seed.env
+scripts/.seed.hosted.env

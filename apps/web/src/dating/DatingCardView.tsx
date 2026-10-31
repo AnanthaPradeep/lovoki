@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { MapPin, Sparkles } from 'lucide-react';
 import { INTENTION_LABEL, bucketLabel, genderLabel, type DatingCard, type Intention, type MediaRef } from '@lovoki/core';
-import { SocialImage } from '../social/parts';
+import { SocialImage, SampleBadge } from '../social/parts';
 import { DetailList } from '../profile/parts';
 
 /** Which images a card needs, so a deck can resolve them in one batched call. */
 export const cardRefs = (c: DatingCard | undefined, all = true): MediaRef[] => (c ? c.photoPaths.slice(0, all ? 6 : 1).map((path) => ({ bucket: 'profile-photos' as const, path })) : []);
 
-type CardLike = Pick<DatingCard, 'userId' | 'displayName' | 'username' | 'age' | 'gender' | 'genderCustom' | 'areaLabel' | 'distanceBucket' | 'intention' | 'interests' | 'prompts' | 'photoPaths' | 'bio' | 'pronouns' | 'details'>;
+type CardLike = Pick<DatingCard, 'userId' | 'displayName' | 'username' | 'age' | 'gender' | 'genderCustom' | 'areaLabel' | 'distanceBucket' | 'intention' | 'interests' | 'prompts' | 'photoPaths' | 'bio' | 'pronouns' | 'details'> & { isSample?: boolean };
 
 /**
  * One person as the dating audience sees them. Only fields the database chose to return are rendered: nothing here can
@@ -35,7 +35,7 @@ export function DatingCardView({ card: p, urls, settled, menu, children }: { car
       {prompt && <div className="dc-note"><div className="q">{prompt.question}</div><blockquote className="break">{prompt.answer}</blockquote></div>}
       <div className="dc-body">
         <div className="row" style={{ alignItems: 'flex-start' }}>
-          <h2 className="dc-name grow">{p.displayName}<span className="age">, {p.age}</span></h2>
+          <h2 className="dc-name grow">{p.displayName}<span className="age">, {p.age}</span>{p.isSample && <> <SampleBadge /></>}</h2>
           {menu}
         </div>
         <div className="dc-meta">
@@ -44,6 +44,7 @@ export function DatingCardView({ card: p, urls, settled, menu, children }: { car
           {p.pronouns && <span data-testid="pronouns">{p.pronouns}</span>}
         </div>
         {p.username && <p className="subtle" style={{ margin: 0 }}>@{p.username}</p>}
+        {p.isSample && <p className="subtle" style={{ margin: 0 }} data-testid="sample-note">Sample profile: a fictional person. Liking them saves nothing and can never become a match.</p>}
         {p.bio && <p className="break" style={{ margin: 0 }}>{p.bio}</p>}
         <DetailList details={p.details} />
         <div className="chips">

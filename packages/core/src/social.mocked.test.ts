@@ -95,9 +95,9 @@ describe('follows, blocks and reports (fake)', () => {
     expect((await me.blocked()).map((b) => b.displayName)).toEqual(['Ann']);
     await me.unblock(U.ann.id); expect((await me.feed('explore')).items).toHaveLength(1);
   });
-  it('a restricted profile shows a name only', async () => {
+  it('a private profile shows handle, name, bio and counts but no age, area, photo or content', async () => {
     const p = await me.profile(U.gate.id);
-    expect(p).toMatchObject({ restricted: true, displayName: 'Gate', bio: null, age: null, photoPath: null, followerCount: null });
+    expect(p).toMatchObject({ restricted: true, displayName: 'Gate', bio: 'About Gate', age: null, photoPath: null, isPrivate: true }); // D3: a private account keeps its bio and counts public
   });
   it('reports are validated and throttled', async () => {
     expect(await code(me.report('profile', U.ann.id, 'spam', ''))).toBe('ok');

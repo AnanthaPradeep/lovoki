@@ -1,16 +1,32 @@
 import { useState, type ReactNode } from 'react';
-import { AlertCircle, ImageOff, Loader2 } from 'lucide-react';
+import { AlertCircle, ImageOff, Loader2, Lock } from 'lucide-react';
 import type { AvatarCrop } from '@lovoki/core';
 import { Notice } from '../ui';
+import { blurhashDataUrl } from '../data/blurhash';
+
+/** Sample content is always labelled. Fictional, and it reaches no real person. */
+export function SampleBadge({ className = '' }: { className?: string }) {
+  return <span className={`badge-sample ${className}`} title="Sample content: fictional, for testing. It reaches no real person.">Sample</span>;
+}
+/** A private account. The text is for screen readers; sighted users get the lock. */
+export function LockMark({ size = 14 }: { size?: number }) {
+  return <span className="lock-mark" title="Private account"><Lock size={size} aria-hidden /><span className="sr-only">Private account</span></span>;
+}
 
 /** A private image at a fixed aspect ratio, so layout never jumps while it loads or if it fails. */
-export function SocialImage({ url, settled, alt, className = 'ratio-45' }: { url: string | undefined; settled: boolean; alt: string; className?: string }) {
+export function SocialImage({ url, settled, alt, className = 'ratio-45', blurhash }: { url: string | undefined; settled: boolean; alt: string; className?: string; blurhash?: string | null }) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const blur = blurhashDataUrl(blurhash);
   if (broken || (settled && !url)) {
     return <div className={`photo ${className}`} role="img" aria-label={`${alt} (unavailable)`}><div className="photo-fallback"><ImageOff size={24} aria-hidden /><span>Photo unavailable</span></div></div>;
   }
-  if (!url) return <div className={`photo ${className} skeleton`} aria-busy="true" />;
-  return <div className={`photo ${className}`}><img src={url} alt={alt} draggable={false} loading="lazy" onError={() => setBroken(true)} /></div>;
+  if (!url) return <div className={`photo ${className} ${blur ? '' : 'skeleton'}`} aria-busy="true" style={blur ? { backgroundImage: `url(${blur})`, backgroundSize: 'cover' } : undefined} />;
+  return (
+    <div className={`photo ${className}`} style={blur ? { backgroundImage: `url(${blur})`, backgroundSize: 'cover' } : undefined}>
+      <img src={url} alt={alt} draggable={false} loading="lazy" className={`fade-in ${loaded ? 'is-in' : ''}`} onLoad={() => setLoaded(true)} onError={() => setBroken(true)} />
+    </div>
+  );
 }
 
 /** CSS for a square crop of a photo: the centre and zoom the owner chose. */
@@ -20,11 +36,17 @@ export const cropStyle = (c: AvatarCrop | null | undefined): React.CSSProperties
 const initials = (name: string) => [...name.trim()].slice(0, 1).join('').toUpperCase() || '?';
 
 /** Round avatar: the person's main photo when it can be shown, otherwise their initial. Never a stranger's face. */
-export function PersonAvatar({ name, url, size = 40, crop }: { name: string; url?: string; size?: number; crop?: AvatarCrop | null }) {
+export function PersonAvatar({ name, url, size = 40, crop, blurhash, locked = false }: { name: string; url?: string; size?: number; crop?: AvatarCrop | null; blurhash?: string | null; locked?: boolean }) {
   const [broken, setBroken] = useState(false);
+  const blur = blurhashDataUrl(blurhash);
+  const showImg = url && !broken;
+  // No real picture for this viewer: a blurred stand-in (decoded from a ~30 character hash, never the file) or the initial.
   return (
-    <div className="avatar" style={{ width: size, height: size, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: size * 0.4 }} aria-hidden>
-      {url && !broken ? <img src={url} alt="" draggable={false} style={{ width: '100%', height: '100%', ...cropStyle(crop) }} onError={() => setBroken(true)} /> : <span>{initials(name)}</span>}
+    <div className={`avatar ${!showImg && blur ? 'avatar-blur' : ''}`} data-blurred={!showImg && !!blur ? 'true' : undefined}
+      style={{ width: size, height: size, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: size * 0.4, position: 'relative', overflow: 'hidden', flex: 'none' }} aria-hidden>
+      {showImg ? <img src={url} alt="" draggable={false} style={{ width: '100%', height: '100%', ...cropStyle(crop) }} onError={() => setBroken(true)} />
+        : blur ? <img src={blur} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(6px)', transform: 'scale(1.3)' }} /> : <span>{initials(name)}</span>}
+      {locked && !showImg && <span className="avatar-lock"><Lock size={Math.max(12, size * 0.28)} aria-hidden /></span>}
     </div>
   );
 }

@@ -255,7 +255,7 @@ def main():
             go(pg, '/settings'); sw = pg.get_by_label('Show me in Discover'); assert not sw.is_checked(), 'discoverable starts off until chosen'; sw.click()
             expect(pg.get_by_text('Privacy settings saved.')).to_be_visible(); pg.reload(); pg.wait_for_timeout(500)
             assert pg.get_by_label('Show me in Discover').is_checked(), 'discoverable on should persist across refresh'
-            btn(pg, 'Followers').click(); pg.wait_for_timeout(300); btn(pg, 'Dark').click()
+            btn(pg, 'Private').click(); expect(pg.get_by_text('Your account is private.')).to_be_visible(); assert pg.evaluate("[...window.__fake.accounts.values()][0].account.socialVisibility") == 'followers', 'private persists'; btn(pg, 'Dark').click()
             assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
             pg.reload(); pg.wait_for_timeout(400); assert pg.evaluate("document.documentElement.dataset.theme") == 'dark', 'theme persists'
             expect(pg.get_by_role('heading', name='Blocked accounts')).to_be_visible(); expect(pg.get_by_text('You haven’t blocked anyone.')).to_be_visible()

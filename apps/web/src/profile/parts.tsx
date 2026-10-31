@@ -3,6 +3,13 @@ import { describeDetails, type AccountApi, type AccountPhoto, type AvatarCrop, t
 import { Notice, useToast } from '../ui';
 import { cropStyle } from '../social/parts';
 import { SignedPhoto } from '../ui/fields';
+import { blurhashFromUrl } from '../data/image';
+
+/** The placeholder for an avatar. Never blocks saving: if the browser cannot read the pixels, the avatar simply has none. */
+async function avatarBlurhash(api: Pick<AccountApi, 'photoUrl'>, path: string | undefined): Promise<string | null> {
+  if (!path) return null;
+  try { return await blurhashFromUrl(await api.photoUrl(path)); } catch { return null; }
+}
 
 /** The optional details this viewer is allowed to see, as a plain list. The database already removed everything else. */
 export function DetailList({ details }: { details: VisibleDetails }) {
@@ -37,7 +44,7 @@ export function AvatarEditor({ account, api, reload }: { account: { photos: Acco
 
   const save = async (reset = false) => {
     if (lock.current) return; lock.current = true; setBusy(true); setErr(null);
-    try { await api.saveAvatar(reset ? null : photoId, reset ? null : crop); await reload(); toast({ text: reset ? 'Avatar reset to your main photo.' : 'Avatar saved.' }); }
+    try { const hash = reset || !photoId ? null : await avatarBlurhash(api, account.photos.find((x) => x.id === photoId)?.path); await api.saveAvatar(reset ? null : photoId, reset ? null : crop, hash); await reload(); toast({ text: reset ? 'Avatar reset to your main photo.' : 'Avatar saved.' }); }
     catch (e) { setErr(e instanceof Error ? e.message : 'Couldn’t save your avatar.'); } finally { lock.current = false; setBusy(false); }
   };
   const slider = (k: keyof AvatarCrop, label: string, min: number, max: number, step: number) => (

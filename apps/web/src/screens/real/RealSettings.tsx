@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Monitor, Moon, Sun, LogOut } from 'lucide-react';
-import { AccountFailure, SocialFailure, type BlockedPerson, type ThemePreference } from '@lovoki/core';
+import { AccountFailure, SocialFailure, privacyOverview, type BlockedPerson, type ThemePreference } from '@lovoki/core';
+import { SHOW_DEV_TOOLS, setHideSamples, useHideSamples } from '../../social/devTools';
 import { useSocial } from '../../social/SocialProvider';
 import { LoadError } from '../../social/parts';
 import { DatingSettings } from '../../dating/DatingSettings';
@@ -32,14 +33,21 @@ export function RealSettings() {
       toast({ text: 'Privacy settings saved.' });
     } catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
   });
-  const saveSocial = (patch: Partial<{ allowComments: 'everyone' | 'followers' | 'nobody'; showFollowerCounts: boolean }>) => run(async () => {
-    try { await api.saveSocialSettings({ allowComments: account.allowComments, showFollowerCounts: account.showFollowerCounts, ...patch }); await reload(); toast({ text: 'Saved.' }); }
+  const setPrivate = (isPrivate: boolean) => run(async () => {
+    try { await api.setAccountPrivate(isPrivate); await reload(); toast({ text: isPrivate ? 'Your account is private. Only people you accept can see your posts.' : 'Your account is public.' }); }
+    catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
+  });
+  const saveSocial = (patch: Partial<{ allowComments: 'everyone' | 'followers' | 'nobody'; showFollowerCounts: boolean; searchable: boolean; showAvatarToEveryone: boolean }>) => run(async () => {
+    try { await api.saveSocialSettings({ allowComments: account.allowComments, showFollowerCounts: account.showFollowerCounts, searchable: account.searchable, showAvatarToEveryone: account.showAvatarToEveryone, ...patch }); await reload(); toast({ text: 'Saved.' }); }
     catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
   });
   const saveMarketing = (on: boolean) => run(async () => {
     try { await api.setMarketingConsent(on); await reload(); toast({ text: on ? 'You’ll get product news by email.' : 'No product emails. Account emails (confirmations, resets) still arrive.' }); }
     catch (e) { toast({ text: e instanceof AccountFailure ? e.message : 'Couldn’t save that setting.', tone: 'error' }); }
   });
+  const hideSamples = useHideSamples();
+  const isPrivate = account.socialVisibility === 'followers';
+  const overview = privacyOverview({ isPrivate, showAvatarToEveryone: account.showAvatarToEveryone, showFollowerCounts: account.showFollowerCounts, searchable: account.searchable, datingDiscoverable: account.datingDiscoverable });
   const logout = async () => { await signOut(); nav('/welcome', { replace: true }); };
 
   return (
@@ -54,12 +62,25 @@ export function RealSettings() {
         <div className="settings-group">
           <label className="switch-row"><span className="grow"><b>Show me in Discover</b><br /><span className="subtle">Turn off to pause dating: you vanish from Discover at once and can’t like anyone. Matches stay.</span></span>
             <input type="checkbox" className="switch" checked={account.datingDiscoverable} disabled={busy} onChange={(e) => void savePrivacy({ datingDiscoverable: e.target.checked })} /></label>
-          <div className="switch-row"><span className="grow"><b>Who can see your profile and posts</b><br /><span className="subtle">Social visibility.</span></span>
+          <div className="switch-row"><span className="grow"><b>Account type</b><br /><span className="subtle" data-testid="private-explainer">{isPrivate
+            ? 'Private: your posts, photos, videos and your follower lists are only for people you accept. Everyone can still see your @username, name and bio, and your profile picture is blurred for them. Followers you already have stay. Pending requests stay pending.'
+            : 'Public: anyone on LOVOKI with a finished profile can see your posts and profile picture. Switching to private later keeps your current followers and hides everything else from everyone who isn’t one.'}</span></span>
             <div className="segmented" role="group" aria-label="Social visibility">
-              <button aria-pressed={account.socialVisibility === 'public'} disabled={busy} onClick={() => void savePrivacy({ socialVisibility: 'public' })}>Public</button>
-              <button aria-pressed={account.socialVisibility === 'followers'} disabled={busy} onClick={() => void savePrivacy({ socialVisibility: 'followers' })}>Followers</button>
+              <button type="button" aria-pressed={!isPrivate} disabled={busy} onClick={() => void setPrivate(false)}>Public</button>
+              <button type="button" aria-pressed={isPrivate} disabled={busy} onClick={() => void setPrivate(true)}>Private</button>
             </div></div>
+          {isPrivate && <label className="switch-row"><span className="grow"><b>Show my profile picture to everyone</b><br /><span className="subtle">Off: people who don’t follow you see a blurred stand-in. Only the picture is shown, never your other photos.</span></span>
+            <input type="checkbox" className="switch" checked={account.showAvatarToEveryone} disabled={busy} onChange={(e) => void saveSocial({ showAvatarToEveryone: e.target.checked })} /></label>}
+          <label className="switch-row"><span className="grow"><b>Let people find me by @username or name</b><br /><span className="subtle">Off: you don’t appear in search. Your profile link still works for anyone who has it.</span></span>
+            <input type="checkbox" className="switch" checked={account.searchable} disabled={busy} onChange={(e) => void saveSocial({ searchable: e.target.checked })} /></label>
         </div>
+      </section>
+      <section className="card card-pad stack overview" aria-labelledby="overview-h" data-testid="privacy-overview"><h2 id="overview-h">Privacy overview</h2>
+        <p className="muted">Two separate layers. Neither one changes the other.</p>
+        <h3 style={{ fontSize: 'var(--fs-label)' }}>Social: posts, profile and followers</h3>
+        <dl>{overview.social.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>
+        <h3 style={{ fontSize: 'var(--fs-label)' }}>Dating: Discover and matches</h3>
+        <dl>{overview.dating.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>
       </section>
       <section className="card card-pad" aria-labelledby="social"><h2 id="social" style={{ marginBottom: 8 }}>Posts and followers</h2>
         <div className="settings-group">
@@ -70,6 +91,12 @@ export function RealSettings() {
             <input type="checkbox" className="switch" checked={account.showFollowerCounts} disabled={busy} onChange={(e) => void saveSocial({ showFollowerCounts: e.target.checked })} /></label>
         </div>
       </section>
+      {SHOW_DEV_TOOLS && (
+        <section className="card card-pad stack" aria-labelledby="dev-h" data-testid="dev-tools"><h2 id="dev-h">Developer tools</h2>
+          <label className="switch-row"><span className="grow"><b>Hide sample content</b><br /><span className="subtle">Only on this device. Hides people and posts marked Sample so you can see what a real account sees.</span></span>
+            <input type="checkbox" className="switch" checked={hideSamples} onChange={(e) => setHideSamples(e.target.checked)} /></label>
+        </section>
+      )}
       <DatingSettings />
       <BlockedAccounts />
       <AccountSecurity />

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, type Location } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import type { AccountApi, AuthApi, AuthUser, DatingApi, SocialApi } from '@lovoki/core';
@@ -32,7 +32,8 @@ import { RealFeed } from './screens/real/RealFeed';
 import { RealConnections } from './screens/real/RealConnections';
 import { RealNotifications } from './screens/real/RealNotifications';
 import { RealProfile, RealProfileByHandle } from './screens/real/RealProfile';
-import { RealPost } from './screens/real/RealPost';
+import { RealPost, RealPostModal } from './screens/real/RealPost';
+import { RealSearch } from './screens/real/RealSearch';
 import { Privacy, Terms } from './screens/Legal';
 import { handleFromPath } from '@lovoki/core';
 import { useParams } from 'react-router-dom';
@@ -58,6 +59,51 @@ function AppShell() {
   );
 }
 
+/**
+ * A post opened from a profile grid on desktop keeps the grid underneath and shows the post in a dialog with its own URL
+ * (/p/:id). On a phone, and for direct links, /p/:id is a full page.
+ */
+function AppRoutes() {
+  const location = useLocation();
+  const background = (location.state as { background?: Location } | null)?.background;
+  return (
+    <>
+      <Routes location={background ?? location}>
+        <Route path="/" element={<Navigate to="/discover" replace />} />
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/check-email" element={<CheckEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/onboarding" element={<OnboardingRedirect />} />
+        <Route path="/onboarding/:step" element={<Onboarding />} />
+        <Route element={<AppShell />}>
+          <Route path="/discover" element={<RealDiscover />} />
+          <Route path="/discover/:id" element={<RealDatingProfile />} />
+          <Route path="/u/:id" element={<RealProfile />} />
+          <Route path="/p/:id" element={<RealPost />} />
+          <Route path="/feed" element={<RealFeed />} />
+          <Route path="/search" element={<RealSearch />} />
+          <Route path="/connections" element={<RealConnections />} />
+          <Route path="/notifications" element={<RealNotifications />} />
+          <Route path="/messages" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
+          <Route path="/messages/:id" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
+          <Route path="/me" element={<RealMe />} />
+          <Route path="/me/edit" element={<RealEditProfile />} />
+          <Route path="/settings" element={<RealSettings />} />
+          <Route path="/:segment" element={<HandleRoute />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+      {background && <Routes><Route path="/p/:id" element={<RealPostModal />} /></Routes>}
+    </>
+  );
+}
+
 /** The real-mode UI, independent of where its data comes from (Supabase in production, in-memory fakes in UI tests). */
 export function RealAppView({ authApi, make, makeSocial, makeDating }: { authApi: AuthApi; make: (u: AuthUser) => AccountApi; makeSocial: (u: AuthUser) => SocialApi; makeDating: (u: AuthUser) => DatingApi }) {
   useApplyTheme(useThemePref());
@@ -66,36 +112,7 @@ export function RealAppView({ authApi, make, makeSocial, makeDating }: { authApi
       <AccountProvider make={make}>
         <SocialProvider make={makeSocial} makeDating={makeDating}>
         <Gate>
-          <Routes>
-            <Route path="/" element={<Navigate to="/discover" replace />} />
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/check-email" element={<CheckEmail />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/onboarding" element={<OnboardingRedirect />} />
-            <Route path="/onboarding/:step" element={<Onboarding />} />
-            <Route element={<AppShell />}>
-              <Route path="/discover" element={<RealDiscover />} />
-              <Route path="/discover/:id" element={<RealDatingProfile />} />
-              <Route path="/u/:id" element={<RealProfile />} />
-              <Route path="/p/:id" element={<RealPost />} />
-              <Route path="/feed" element={<RealFeed />} />
-              <Route path="/connections" element={<RealConnections />} />
-              <Route path="/notifications" element={<RealNotifications />} />
-              <Route path="/messages" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
-              <Route path="/messages/:id" element={<Unavailable title="Messaging isn’t live yet" body="Conversations open after a mutual match, with realtime delivery." phase="Phase 5" />} />
-              <Route path="/me" element={<RealMe />} />
-              <Route path="/me/edit" element={<RealEditProfile />} />
-              <Route path="/settings" element={<RealSettings />} />
-              <Route path="/:segment" element={<HandleRoute />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
+          <AppRoutes />
         </Gate>
         </SocialProvider>
       </AccountProvider>

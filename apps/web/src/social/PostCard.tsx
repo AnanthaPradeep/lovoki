@@ -7,7 +7,7 @@ import {
 } from '@lovoki/core';
 import { ConfirmDialog, Counter, Menu, Notice, useToast } from '../ui';
 import { useSocial } from './SocialProvider';
-import { LoadMore, PersonAvatar, SocialImage } from './parts';
+import { LoadMore, LockMark, PersonAvatar, SampleBadge, SocialImage } from './parts';
 import { usePageList } from './usePagedList';
 import { BlockDialog, ReportDialog } from './safety';
 
@@ -29,7 +29,9 @@ export function PostCard({ post: p, dispatch, urls, settled }: Props) {
   const [dlg, setDlg] = useState<null | 'delete' | 'report' | 'block'>(null);
   const [deleting, setDeleting] = useState(false);
   const long = p.caption.length > 140;
-  const href = p.isMine ? '/me' : `/u/${p.authorId}`;
+  const href = p.authorUsername ? `/@${p.authorUsername}` : p.isMine ? '/me' : `/u/${p.authorId}`;
+  // Keep the picture's shape stable before it loads: square media stays 1:1, everything else is 4:5.
+  const ratio = p.media?.width && p.media?.height && p.media.width / p.media.height >= 0.95 ? 'ratio-1' : 'ratio-45';
   const who = p.isMine ? 'You' : p.authorName;
 
   const toggleLike = useCallback(() => {
@@ -87,9 +89,13 @@ export function PostCard({ post: p, dispatch, urls, settled }: Props) {
   return (
     <article className="card post" aria-label={`Post by ${who}`} data-post-id={p.id}>
       <header className="post-head">
-        <Link to={href} aria-label={`${who}’s profile`}><PersonAvatar name={p.authorName} url={avatar} size={40} /></Link>
+        <Link to={href} aria-label={`${who}’s profile`}><PersonAvatar name={p.authorName} url={avatar} size={40} blurhash={p.authorBlurhash} locked={p.authorPrivate && !avatar} /></Link>
         <div className="grow" style={{ minWidth: 0 }}>
-          <Link to={href} className="truncate" style={{ display: 'block' }}>{who}</Link>
+          <div className="row" style={{ gap: 6, minWidth: 0 }}>
+            <Link to={href} className="truncate" style={{ display: 'block' }}>{who}</Link>
+            {p.authorUsername && !p.isMine && <span className="subtle truncate" data-testid="post-handle">@{p.authorUsername}</span>}
+            {p.authorPrivate && <LockMark />}{p.isSample && <SampleBadge />}
+          </div>
           <div className="row" style={{ gap: 8 }}>
             <time className="subtle" dateTime={p.createdAt}>{postedAgo(p.createdAt)}</time>
             <span className="audience">{p.audience === 'public' ? <><Globe size={12} aria-hidden />Public</> : <><Users size={12} aria-hidden />Followers only</>}</span>
@@ -101,7 +107,7 @@ export function PostCard({ post: p, dispatch, urls, settled }: Props) {
           : [{ label: 'Report post', icon: <Flag size={18} />, onSelect: () => setDlg('report') },
              { label: `Block ${p.authorName}`, icon: <Ban size={18} />, danger: true, onSelect: () => setDlg('block') }]} />
       </header>
-      {p.media ? <SocialImage url={media} settled={settled} alt={`Photo from ${who}`} /> : <div className="text-only">{p.caption}</div>}
+      {p.media ? <SocialImage url={media} settled={settled} alt={`Photo from ${who}`} blurhash={p.media.blurhash} className={ratio} /> : <div className="text-only">{p.caption}</div>}
       <div className="post-actions">
         <button type="button" className="icon-btn" aria-pressed={p.likedByMe} aria-label={p.likedByMe ? 'Unlike post' : 'Like post'} onClick={toggleLike}>
           <Heart size={24} className={p.likedByMe ? 'liked' : ''} fill={p.likedByMe ? 'currentColor' : 'none'} aria-hidden />

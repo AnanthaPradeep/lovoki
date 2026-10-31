@@ -3,7 +3,7 @@ import { Globe, ImagePlus, Users, X } from 'lucide-react';
 import { SOCIAL_RULES, SocialFailure, SubmitGuard, audienceCopy, charCount, validateCaption, type Audience } from '@lovoki/core';
 import { Counter, Dialog, Notice, useToast } from '../ui';
 import { useReadyAccount } from '../account/AccountProvider';
-import { prepareImage } from '../data/image';
+import { preparePostImage, type PreparedPostImage } from '../data/image';
 import { useSocial } from './SocialProvider';
 
 /**
@@ -15,7 +15,7 @@ export function Composer({ open, onClose, onPosted }: { open: boolean; onClose: 
   const { account } = useReadyAccount();
   const toast = useToast();
   const [caption, setCaption] = useState('');
-  const [image, setImage] = useState<{ blob: Blob; preview: string } | null>(null);
+  const [image, setImage] = useState<{ prepared: PreparedPostImage; preview: string } | null>(null);
   const [audience, setAudience] = useState<Audience>(account.socialVisibility);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +32,7 @@ export function Composer({ open, onClose, onPosted }: { open: boolean; onClose: 
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setErr(null); setReading(true);
-    try { const blob = await prepareImage(file); setImage({ blob, preview: URL.createObjectURL(blob) }); }
+    try { const prepared = await preparePostImage(file); setImage({ prepared, preview: URL.createObjectURL(prepared.blob) }); }
     catch (e) { setErr(e instanceof Error ? e.message : 'That image couldn’t be used.'); }
     finally { setReading(false); }
   };
@@ -45,7 +45,7 @@ export function Composer({ open, onClose, onPosted }: { open: boolean; onClose: 
     setBusy(true); setErr(null);
     void guard.run('publish', async () => {
       try {
-        await api.createPost({ id: postId.current, caption, audience, image: image?.blob ?? null });
+        await api.createPost({ id: postId.current, caption, audience, image: image?.prepared.blob ?? null, thumb: image?.prepared.thumb ?? null, size: image ? { width: image.prepared.width, height: image.prepared.height } : null, blurhash: image?.prepared.blurhash ?? null });
         toast({ text: audience === 'public' && account.socialVisibility === 'public' ? 'Posted. Anyone on LOVOKI can see it.' : 'Posted for your followers.' });
         reset(); onClose(); onPosted();
       } catch (e) { setErr(e instanceof SocialFailure ? e.message : 'Couldn’t post. Your post is still here, so you can try again.'); }

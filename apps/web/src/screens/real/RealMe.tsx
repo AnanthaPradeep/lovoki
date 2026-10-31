@@ -26,7 +26,7 @@ export function RealMe() {
     <div className="page stack" style={{ gap: 24 }}>
       <div className="page-head" style={{ marginBottom: 0 }}>
         <h1>Your profile</h1>
-        <div className="row"><NotificationsLink /><Link to="/settings" className="btn btn-ghost"><Settings size={18} aria-hidden />Settings</Link><Link to="/me/edit" className="btn btn-primary"><Pencil size={18} aria-hidden />Edit profile</Link></div>
+        <div className="row" style={{ flexWrap: 'wrap' }}><NotificationsLink />{account.username && <Link to={`/@${account.username}`} className="btn btn-secondary" data-testid="view-public-profile">View profile</Link>}<Link to="/settings" className="btn btn-ghost"><Settings size={18} aria-hidden />Settings</Link><Link to="/me/edit" className="btn btn-primary"><Pencil size={18} aria-hidden />Edit profile</Link></div>
       </div>
       <section className="card card-pad stack" style={{ gap: 12 }} aria-labelledby="complete-h" data-testid="complete-profile">
         <div className="row"><h2 id="complete-h" className="grow" style={{ fontSize: 'var(--fs-title)' }}>Complete your profile</h2><b>{done.percent}%</b></div>
