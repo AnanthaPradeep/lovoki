@@ -45,6 +45,8 @@ export interface Account {
   avatarPhotoId: string | null; avatarCrop: AvatarCrop | null;
   details: ProfileDetails; visibility: VisibilityMap;
   allowComments: AllowComments; showFollowerCounts: boolean;
+  /** Phase 4.5: findable by search, and whether a private account shows its real picture to everyone. */
+  searchable: boolean; showAvatarToEveryone: boolean; avatarBlurhash: string | null; isSample: boolean;
   /** Null until the person has accepted the terms. */
   consent: { termsVersion: string; marketing: boolean } | null;
   filterIntentions: string[]; filterInterests: string[];

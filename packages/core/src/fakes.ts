@@ -125,7 +125,7 @@ export class FakeAccountApi implements AccountApi {
       intention: null, interestedIn: [], ageMin: 18, ageMax: 60, maxDistanceKm: null, areaLabel: '',
       socialVisibility: 'public', datingDiscoverable: false, photos: [], onboarding: { currentStep: 'basics', completedAt: null },
       username: null, gender: null, genderCustom: null, showGender: true, showDistance: true, place: null, avatarPhotoId: null, avatarCrop: null,
-      details: emptyDetails(), visibility: {}, allowComments: 'everyone', showFollowerCounts: true, consent: null,
+      details: emptyDetails(), visibility: {}, allowComments: 'everyone', showFollowerCounts: true, searchable: true, showAvatarToEveryone: false, avatarBlurhash: null, isSample: false, consent: null,
       filterIntentions: [], filterInterests: [], filterHeightMin: null, filterHeightMax: null, filterDrinking: [], filterSmoking: [], filterKids: [],
     };
   }
@@ -236,12 +236,16 @@ export class FakeAccountApi implements AccountApi {
     this.account.details = { ...d, instagramHandle: d.instagramHandle ? d.instagramHandle.trim().replace(/^@/, '').toLowerCase() : null, jobTitle: d.jobTitle?.trim() || null, companyOrSchool: d.companyOrSchool?.trim() || null, languages: [...d.languages].slice(0, DETAIL_LIMITS.languagesMax), pets: [...d.pets] };
     const vis = { ...this.account.visibility, ...visibility }; if (!d.religion) delete vis.religion; this.account.visibility = vis;
   }
-  async saveAvatar(photoId: string | null, crop: AvatarCrop | null) {
+  async saveAvatar(photoId: string | null, crop: AvatarCrop | null, blurhash?: string | null) {
     await this.gate('saveAvatar');
     if (photoId && !this.account.photos.some((p) => p.id === photoId)) throw fail('invalid', 'Choose one of your own photos.');
-    this.account.avatarPhotoId = photoId; this.account.avatarCrop = photoId ? crop : null;
+    this.account.avatarPhotoId = photoId; this.account.avatarCrop = photoId ? crop : null; this.account.avatarBlurhash = photoId ? (blurhash ?? null) : null;
   }
-  async saveSocialSettings(x: { allowComments: 'everyone' | 'followers' | 'nobody'; showFollowerCounts: boolean }) { await this.gate('saveSocialSettings'); this.account.allowComments = x.allowComments; this.account.showFollowerCounts = x.showFollowerCounts; }
+  async setAccountPrivate(isPrivate: boolean) { await this.gate('setAccountPrivate'); this.account.socialVisibility = isPrivate ? 'followers' : 'public'; }
+  async saveSocialSettings(x: { allowComments: 'everyone' | 'followers' | 'nobody'; showFollowerCounts: boolean; searchable: boolean; showAvatarToEveryone: boolean }) {
+    await this.gate('saveSocialSettings');
+    this.account.allowComments = x.allowComments; this.account.showFollowerCounts = x.showFollowerCounts; this.account.searchable = x.searchable; this.account.showAvatarToEveryone = x.showAvatarToEveryone;
+  }
   async recordConsent(termsVersion: string, marketing?: boolean) {
     await this.gate('recordConsent'); if (!termsVersion.trim()) throw fail('invalid', 'Accept the terms to continue.');
     this.account.consent = { termsVersion, marketing: marketing ?? this.account.consent?.marketing ?? false };

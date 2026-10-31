@@ -36,7 +36,7 @@ function toCard(r: CardRow, cursor: string): DatingCard {
     id: r.user_id, userId: r.user_id, displayName: r.display_name ?? 'Someone', username: r.username ?? null, age: r.age ?? 18, gender: (r.gender ?? null) as Gender | null, genderCustom: r.gender_custom ?? null, areaLabel: r.area_label ?? '',
     avatarPath: r.avatar_path ?? null, avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, details: (r.details ?? {}) as VisibleDetails,
     distanceBucket: isBucket(r.distance_bucket) ? r.distance_bucket : null, intention: r.intention ?? '',
-    interests: (r.interests ?? []).map((s) => interestLabel(s) ?? s), prompts, photoPaths: r.photo_paths ?? [], bio: r.bio ?? '', pronouns: r.pronouns ?? null, cursor,
+    interests: (r.interests ?? []).map((s) => interestLabel(s) ?? s), prompts, photoPaths: r.photo_paths ?? [], bio: r.bio ?? '', pronouns: r.pronouns ?? null, isSample: false, cursor,
   };
 }
 
@@ -53,14 +53,24 @@ export class SupabaseDatingApi implements DatingApi {
     const safe = safeDiscoverCursor(cursor);
     if (cursor && !safe) throw new DatingFailure('invalid_cursor', 'That list is out of date. Reload to continue.');
     const rows = await this.rpc('discover_profiles', { p_limit: DATING_LIMITS.pageSize, p_cursor: safe ?? undefined });
-    return takePage(rows.map((r: Row<'discover_profiles'>) => toCard(r as unknown as CardRow, r.page_cursor)), DATING_LIMITS.pageSize);
+    const page = takePage(rows.map((r: Row<'discover_profiles'>) => toCard(r as unknown as CardRow, r.page_cursor)), DATING_LIMITS.pageSize);
+    return { ...page, items: await this.flagSamples(page.items) };
+  }
+
+  /** The sample flag is fetched separately (ids you already hold, flag only) so the card functions stay unchanged. */
+  private async flagSamples<T extends { userId: string; isSample: boolean }>(items: T[]): Promise<T[]> {
+    if (!items.length) return items;
+    const rows = (await this.rpc('sample_flags', { p_ids: items.map((c) => c.userId) })) as { user_id: string; is_sample: boolean }[];
+    const flagged = new Set(rows.filter((r) => r.is_sample).map((r) => r.user_id));
+    return items.map((c) => (flagged.has(c.userId) ? { ...c, isSample: true } : c));
   }
 
   async profile(userId: string): Promise<DatingProfileView | null> {
     const r = (await this.rpc('dating_profile', { p_user: userId }))[0];
     if (!r) return null;
-    const { cursor: _c, id: _i, ...card } = toCard(r as unknown as CardRow, ''); void _c; void _i;
-    return { ...card, isMatch: r.is_match, matchId: r.match_id ?? null, matchedAt: r.matched_at ?? null };
+    const { cursor: _c, id: _i, ...card0 } = toCard(r as unknown as CardRow, ''); void _c; void _i;
+    const [card] = await this.flagSamples([card0]);
+    return { ...card!, isMatch: r.is_match, matchId: r.match_id ?? null, matchedAt: r.matched_at ?? null };
   }
 
   async like(userId: string): Promise<LikeResult> {

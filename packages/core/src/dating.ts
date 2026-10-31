@@ -69,6 +69,8 @@ export interface DatingCard {
   details: VisibleDetails;
   /** Only for matches (M-visibility). */
   pronouns: string | null;
+  /** Fictional sample person. Liking one stores nothing and can never become a match. */
+  isSample: boolean;
   cursor: string;
   /** Needed by the list reducers; equals userId. */
   id: string;

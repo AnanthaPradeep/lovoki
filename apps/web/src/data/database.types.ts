@@ -23,7 +23,21 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "blocks": {
+            "app_config": {
+                  Row: {
+                    "environment": string,"id": boolean
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "environment"?: string,"id"?: boolean
+                  }
+                  Update: {
+                    "environment"?: string,"id"?: boolean
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"blocks": {
                   Row: {
                     "blocked_id": string,"blocker_id": string,"created_at": string
                   }
@@ -233,14 +247,14 @@ isOneToOne: false
                   ]
                 },"post_comments": {
                   Row: {
-                    "author_id": string,"body": string,"created_at": string,"id": string,"post_id": string
+                    "author_id": string,"body": string,"created_at": string,"id": string,"is_sample": boolean,"post_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "author_id": string,"body": string,"created_at"?: string,"id"?: string,"post_id": string
+                    "author_id": string,"body": string,"created_at"?: string,"id"?: string,"is_sample"?: boolean,"post_id": string
                   }
                   Update: {
-                    "author_id"?: string,"body"?: string,"created_at"?: string,"id"?: string,"post_id"?: string
+                    "author_id"?: string,"body"?: string,"created_at"?: string,"id"?: string,"is_sample"?: boolean,"post_id"?: string
                   }
                   Relationships: [
                     {
@@ -273,14 +287,14 @@ isOneToOne: false
                   ]
                 },"post_media": {
                   Row: {
-                    "content_type": string,"created_at": string,"id": string,"position": number,"post_id": string,"size_bytes": number,"storage_path": string,"user_id": string
+                    "blurhash": string | null,"content_type": string,"created_at": string,"height": number | null,"id": string,"kind": string,"position": number,"post_id": string,"size_bytes": number,"storage_path": string,"thumb_path": string | null,"user_id": string,"width": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "content_type": string,"created_at"?: string,"id"?: string,"position"?: number,"post_id": string,"size_bytes": number,"storage_path": string,"user_id": string
+                    "blurhash"?: string | null,"content_type": string,"created_at"?: string,"height"?: number | null,"id"?: string,"kind"?: string,"position"?: number,"post_id": string,"size_bytes": number,"storage_path": string,"thumb_path"?: string | null,"user_id": string,"width"?: number | null
                   }
                   Update: {
-                    "content_type"?: string,"created_at"?: string,"id"?: string,"position"?: number,"post_id"?: string,"size_bytes"?: number,"storage_path"?: string,"user_id"?: string
+                    "blurhash"?: string | null,"content_type"?: string,"created_at"?: string,"height"?: number | null,"id"?: string,"kind"?: string,"position"?: number,"post_id"?: string,"size_bytes"?: number,"storage_path"?: string,"thumb_path"?: string | null,"user_id"?: string,"width"?: number | null
                   }
                   Relationships: [
                     {
@@ -313,14 +327,14 @@ isOneToOne: false
                   ]
                 },"posts": {
                   Row: {
-                    "audience": string,"author_id": string,"caption": string,"created_at": string,"id": string
+                    "audience": string,"author_id": string,"caption": string,"created_at": string,"id": string,"is_sample": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "audience": string,"author_id": string,"caption"?: string,"created_at"?: string,"id"?: string
+                    "audience": string,"author_id": string,"caption"?: string,"created_at"?: string,"id"?: string,"is_sample"?: boolean
                   }
                   Update: {
-                    "audience"?: string,"author_id"?: string,"caption"?: string,"created_at"?: string,"id"?: string
+                    "audience"?: string,"author_id"?: string,"caption"?: string,"created_at"?: string,"id"?: string,"is_sample"?: boolean
                   }
                   Relationships: [
                     
@@ -409,14 +423,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "allow_comments": string,"area_label": string,"avatar_crop": Json | null,"avatar_photo_id": string | null,"bio": string,"created_at": string,"dating_discoverable": boolean,"display_name": string | null,"gender": string | null,"gender_custom": string | null,"intention": string | null,"pronouns": string,"show_distance": boolean,"show_follower_counts": boolean,"show_gender": boolean,"social_visibility": string,"updated_at": string,"user_id": string,"username": string | null,"username_changed_at": string | null
+                    "allow_comments": string,"area_label": string,"avatar_blurhash": string | null,"avatar_crop": Json | null,"avatar_photo_id": string | null,"bio": string,"created_at": string,"dating_discoverable": boolean,"display_name": string | null,"gender": string | null,"gender_custom": string | null,"intention": string | null,"is_sample": boolean,"pronouns": string,"searchable_by_username": boolean,"show_avatar_to_everyone": boolean,"show_distance": boolean,"show_follower_counts": boolean,"show_gender": boolean,"social_visibility": string,"updated_at": string,"user_id": string,"username": string | null,"username_changed_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "allow_comments"?: string,"area_label"?: string,"avatar_crop"?: Json | null,"avatar_photo_id"?: string | null,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"gender_custom"?: string | null,"intention"?: string | null,"pronouns"?: string,"show_distance"?: boolean,"show_follower_counts"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id": string,"username"?: string | null,"username_changed_at"?: string | null
+                    "allow_comments"?: string,"area_label"?: string,"avatar_blurhash"?: string | null,"avatar_crop"?: Json | null,"avatar_photo_id"?: string | null,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"gender_custom"?: string | null,"intention"?: string | null,"is_sample"?: boolean,"pronouns"?: string,"searchable_by_username"?: boolean,"show_avatar_to_everyone"?: boolean,"show_distance"?: boolean,"show_follower_counts"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id": string,"username"?: string | null,"username_changed_at"?: string | null
                   }
                   Update: {
-                    "allow_comments"?: string,"area_label"?: string,"avatar_crop"?: Json | null,"avatar_photo_id"?: string | null,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"gender_custom"?: string | null,"intention"?: string | null,"pronouns"?: string,"show_distance"?: boolean,"show_follower_counts"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id"?: string,"username"?: string | null,"username_changed_at"?: string | null
+                    "allow_comments"?: string,"area_label"?: string,"avatar_blurhash"?: string | null,"avatar_crop"?: Json | null,"avatar_photo_id"?: string | null,"bio"?: string,"created_at"?: string,"dating_discoverable"?: boolean,"display_name"?: string | null,"gender"?: string | null,"gender_custom"?: string | null,"intention"?: string | null,"is_sample"?: boolean,"pronouns"?: string,"searchable_by_username"?: boolean,"show_avatar_to_everyone"?: boolean,"show_distance"?: boolean,"show_follower_counts"?: boolean,"show_gender"?: boolean,"social_visibility"?: string,"updated_at"?: string,"user_id"?: string,"username"?: string | null,"username_changed_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -534,6 +548,12 @@ isOneToOne: false
 "_is_completed":
 { Args: { "p_user": string }; Returns: boolean
                            },
+"_is_development":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"_is_sample":
+{ Args: { "p_user": string }; Returns: boolean
+                           },
 "_like_count":
 { Args: { "p_post": string,"p_viewer": string }; Returns: number
                            },
@@ -556,10 +576,21 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: number
                            },
 "_post_rows":
-{ Args: { "p_author": string,"p_cursor": string,"p_limit": number,"p_mode": string,"p_viewer": string }; Returns: {
-              "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"comments_allowed": boolean,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
-            }[]
-                           },
+{ Args: { "p_author": string,"p_cursor": string,"p_limit": number,"p_mode": string,"p_viewer": string }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"_profile_people":
+{ Args: { "p_cursor": string,"p_kind": string,"p_limit": number,"t": string,"v": string }; Returns: Database["public"]['CompositeTypes']["person_card"][]
+                          SetofOptions: {
+        from: "*"
+        to: "person_card"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "_rate_hit":
 { Args: { "p_kind": string,"p_limit": number,"p_unit": string }; Returns: undefined
                            },
@@ -571,6 +602,14 @@ isOneToOne: false
                            },
 "_reserved_handle":
 { Args: { "h": string }; Returns: boolean
+                           },
+"_social_avatar_path":
+{ Args: { "p_owner": string,"p_viewer": string }; Returns: string
+                           },
+"_social_profile":
+{ Args: { "t": string,"v": string }; Returns: {
+              "age": number,"area_label": string,"avatar_blurhash": string,"avatar_crop": Json,"bio": string,"details": Json,"display_name": string,"follow_status": string,"follower_count": number,"following_count": number,"follows_me_status": string,"gender": string,"gender_custom": string,"interests": (string)[],"is_private": boolean,"is_sample": boolean,"is_self": boolean,"photo_path": string,"post_count": number,"prompts": Json,"pronouns": string,"relationship": string,"restricted": boolean,"user_id": string,"username": string
+            }[]
                            },
 "_try_match":
 { Args: { "a": string,"b": string }; Returns: string
@@ -596,6 +635,9 @@ isOneToOne: false
 "can_read_post_media":
 { Args: { "p_name": string }; Returns: boolean
                            },
+"can_read_profile_photo":
+{ Args: { "p_name": string }; Returns: boolean
+                           },
 "can_view_content":
 { Args: { "p_audience": string,"p_author": string,"p_viewer": string }; Returns: boolean
                            },
@@ -617,7 +659,7 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "create_post":
-{ Args: { "p_audience": string,"p_caption": string,"p_media_path"?: string,"p_post_id": string }; Returns: string
+{ Args: { "p_audience": string,"p_blurhash"?: string,"p_caption": string,"p_height"?: number,"p_media_path"?: string,"p_post_id": string,"p_thumb_path"?: string,"p_width"?: number }; Returns: string
                            },
 "dating_profile":
 { Args: { "p_user": string }; Returns: {
@@ -647,12 +689,20 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "feed_page":
-{ Args: { "p_cursor"?: string,"p_feed": string,"p_limit"?: number }; Returns: {
-              "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"comments_allowed": boolean,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
-            }[]
-                           },
+{ Args: { "p_cursor"?: string,"p_feed": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "follow_user":
 { Args: { "p_user": string }; Returns: string
+                           },
+"get_social_profile":
+{ Args: { "p_handle": string }; Returns: {
+              "age": number,"area_label": string,"avatar_blurhash": string,"avatar_crop": Json,"bio": string,"details": Json,"display_name": string,"follow_status": string,"follower_count": number,"following_count": number,"follows_me_status": string,"gender": string,"gender_custom": string,"interests": (string)[],"is_private": boolean,"is_sample": boolean,"is_self": boolean,"photo_path": string,"post_count": number,"prompts": Json,"pronouns": string,"relationship": string,"restricted": boolean,"user_id": string,"username": string
+            }[]
                            },
 "is_adult_on":
 { Args: { "dob": string,"min_years"?: number,"ref": string }; Returns: boolean
@@ -672,6 +722,22 @@ isOneToOne: false
               "created_at": string,"display_name": string,"user_id": string
             }[]
                            },
+"list_followers":
+{ Args: { "p_cursor"?: string,"p_handle": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["person_card"][]
+                          SetofOptions: {
+        from: "*"
+        to: "person_card"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"list_following":
+{ Args: { "p_cursor"?: string,"p_handle": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["person_card"][]
+                          SetofOptions: {
+        from: "*"
+        to: "person_card"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "list_follows":
 { Args: { "p_cursor"?: string,"p_kind": string,"p_limit"?: number }; Returns: {
               "created_at": string,"display_name": string,"page_cursor": string,"photo_path": string,"status": string,"user_id": string
@@ -682,6 +748,14 @@ isOneToOne: false
               "age": number,"area_label": string,"avatar_crop": Json,"avatar_path": string,"bio": string,"details": Json,"display_name": string,"distance_bucket": string,"gender": string,"gender_custom": string,"intention": string,"interests": (string)[],"match_id": string,"matched_at": string,"page_cursor": string,"photo_paths": (string)[],"prompts": Json,"pronouns": string,"user_id": string,"username": string
             }[]
                            },
+"list_profile_posts":
+{ Args: { "p_cursor"?: string,"p_handle": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "mark_notifications_read":
 { Args: { "p_ids"?: (string)[] }; Returns: number
                            },
@@ -713,15 +787,21 @@ isOneToOne: false
 { Args: { "p_target": string }; Returns: undefined
                            },
 "post_page":
-{ Args: { "p_post": string }; Returns: {
-              "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"comments_allowed": boolean,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
-            }[]
-                           },
+{ Args: { "p_post": string }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "profile_posts_page":
-{ Args: { "p_author": string,"p_cursor"?: string,"p_limit"?: number }; Returns: {
-              "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"comments_allowed": boolean,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
-            }[]
-                           },
+{ Args: { "p_author": string,"p_cursor"?: string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "record_consent":
 { Args: { "p_confirm_18": boolean,"p_marketing"?: boolean,"p_terms_version": string }; Returns: undefined
                            },
@@ -743,11 +823,16 @@ isOneToOne: false
 "respond_follow_request":
 { Args: { "p_accept": boolean,"p_follower": string }; Returns: undefined
                            },
+"sample_flags":
+{ Args: { "p_ids": (string)[] }; Returns: {
+              "is_sample": boolean,"user_id": string
+            }[]
+                           },
 "save_about":
 { Args: { "p_bio": string,"p_interests": (string)[],"p_prompts": Json }; Returns: undefined
                            },
 "save_avatar":
-{ Args: { "p_crop": Json,"p_photo_id": string }; Returns: undefined
+{ Args: { "p_blurhash"?: string,"p_crop": Json,"p_photo_id": string }; Returns: undefined
                            },
 "save_basics":
 { Args: { "p_date_of_birth": string,"p_display_name": string,"p_pronouns"?: string }; Returns: undefined
@@ -774,17 +859,31 @@ isOneToOne: false
 { Args: { "p_patch": Json,"p_visibility"?: Json }; Returns: undefined
                            },
 "save_social_settings":
-{ Args: { "p_allow_comments": string,"p_show_follower_counts": boolean }; Returns: undefined
+{ Args: { "p_allow_comments": string,"p_searchable"?: boolean,"p_show_avatar_to_everyone"?: boolean,"p_show_follower_counts": boolean }; Returns: undefined
                            },
 "saved_posts_page":
-{ Args: { "p_cursor"?: string,"p_limit"?: number }; Returns: {
-              "audience": string,"author_id": string,"author_name": string,"author_photo_path": string,"caption": string,"comment_count": number,"comments_allowed": boolean,"created_at": string,"is_mine": boolean,"like_count": number,"liked_by_me": boolean,"media_path": string,"media_type": string,"page_cursor": string,"post_id": string,"saved_by_me": boolean
-            }[]
-                           },
+{ Args: { "p_cursor"?: string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["post_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "post_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "search_places":
 { Args: { "p_limit"?: number,"p_query": string }; Returns: {
               "country": string,"country_code": string,"id": number,"label": string,"name": string,"region": string
             }[]
+                           },
+"search_profiles":
+{ Args: { "p_limit"?: number,"p_q": string }; Returns: Database["public"]['CompositeTypes']["person_card"][]
+                          SetofOptions: {
+        from: "*"
+        to: "person_card"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"set_account_private":
+{ Args: { "p_private": boolean }; Returns: undefined
                            },
 "set_marketing_consent":
 { Args: { "p_on": boolean }; Returns: undefined
@@ -805,9 +904,17 @@ isOneToOne: false
                            },
 "social_profile":
 { Args: { "p_user": string }; Returns: {
-              "age": number,"area_label": string,"avatar_crop": Json,"bio": string,"details": Json,"display_name": string,"follow_status": string,"follower_count": number,"following_count": number,"follows_me_status": string,"gender": string,"gender_custom": string,"interests": (string)[],"is_self": boolean,"photo_path": string,"post_count": number,"prompts": Json,"pronouns": string,"restricted": boolean,"user_id": string,"username": string
+              "age": number,"area_label": string,"avatar_blurhash": string,"avatar_crop": Json,"bio": string,"details": Json,"display_name": string,"follow_status": string,"follower_count": number,"following_count": number,"follows_me_status": string,"gender": string,"gender_custom": string,"interests": (string)[],"is_private": boolean,"is_sample": boolean,"is_self": boolean,"photo_path": string,"post_count": number,"prompts": Json,"pronouns": string,"relationship": string,"restricted": boolean,"user_id": string,"username": string
             }[]
                            },
+"suggested_people":
+{ Args: { "p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["person_card"][]
+                          SetofOptions: {
+        from: "*"
+        to: "person_card"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "unblock_user":
 { Args: { "p_user": string }; Returns: undefined
                            },
@@ -833,7 +940,11 @@ isOneToOne: false
             [_ in never]: never
           }
           CompositeTypes: {
-            [_ in never]: never
+            "person_card": {
+                        "user_id": string | null,"username": string | null,"display_name": string | null,"photo_path": string | null,"avatar_blurhash": string | null,"avatar_crop": Json | null,"is_private": boolean | null,"is_sample": boolean | null,"follow_status": string | null,"page_cursor": string | null
+                      },"post_row": {
+                        "post_id": string | null,"author_id": string | null,"author_username": string | null,"author_name": string | null,"author_photo_path": string | null,"author_blurhash": string | null,"author_private": boolean | null,"is_sample": boolean | null,"caption": string | null,"audience": string | null,"created_at": string | null,"media_path": string | null,"media_type": string | null,"media_kind": string | null,"thumb_path": string | null,"media_width": number | null,"media_height": number | null,"media_blurhash": string | null,"media_count": number | null,"like_count": number | null,"comment_count": number | null,"liked_by_me": boolean | null,"saved_by_me": boolean | null,"is_mine": boolean | null,"page_cursor": string | null,"comments_allowed": boolean | null
+                      }
           }
         }
 }

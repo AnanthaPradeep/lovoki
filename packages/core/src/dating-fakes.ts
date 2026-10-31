@@ -98,7 +98,7 @@ export class FakeDatingApi implements DatingApi {
     const u = this.world.social.users.get(t)!, d = this.world.d(t), dist = this.world.distance(v, t);
     return {
       id: t, userId: t, displayName: u.name, username: u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.'), age: u.age, gender: d.showGender ? d.gender : null, genderCustom: null, areaLabel: d.place?.name ?? 'Somewhere', distanceBucket: dist === null ? null : bucketOf(dist),
-      intention: d.intention, interests: d.interests, prompts: d.prompts, photoPaths: [`${t}/main.jpg`], avatarPath: `${t}/main.jpg`, avatarCrop: null, details: {}, bio: d.bio, pronouns: this.world.activeMatch(v, t) ? d.pronouns : null, cursor,
+      intention: d.intention, interests: d.interests, prompts: d.prompts, photoPaths: [`${t}/main.jpg`], avatarPath: `${t}/main.jpg`, avatarCrop: null, details: {}, bio: d.bio, pronouns: this.world.activeMatch(v, t) ? d.pronouns : null, isSample: u.isSample === true, cursor,
     };
   }
   private paused() { return !this.world.d(this.me).discoverable; }
@@ -137,6 +137,7 @@ export class FakeDatingApi implements DatingApi {
     if (userId === this.me) throw err('invalid', 'You can’t like yourself.');
     if (this.paused()) throw err('paused', 'Dating is paused.');
     if (!w.d(this.me).gender) throw err('profile_incomplete', 'Add your gender first.');
+    if (w.social.isSample(userId)) return { matched: false, matchId: null }; // a sample is not a person: nothing is stored, nothing can match
     const ex = w.activeMatch(this.me, userId); if (ex) return { matched: true, matchId: ex.id };
     const already = w.actions.get(`${this.me}>${userId}`)?.action === 'like';
     if (!already && (await this.status()).likesLeft <= 0) throw err('daily_limit', 'That’s today’s limit.');

@@ -53,7 +53,7 @@ export class SupabaseAccountApi implements AccountApi {
     const id = this.userId, sb = this.sb;
     const [priv, prof, prefs, onb, ints, prompts, photos, place, details, consent] = await Promise.all([
       sb.from('profiles_private').select('date_of_birth').eq('user_id', id).maybeSingle(),
-      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable,gender,show_gender,show_distance,username,gender_custom,avatar_photo_id,avatar_crop,allow_comments,show_follower_counts').eq('user_id', id).maybeSingle(),
+      sb.from('profiles').select('display_name,pronouns,bio,intention,area_label,social_visibility,dating_discoverable,gender,show_gender,show_distance,username,gender_custom,avatar_photo_id,avatar_crop,allow_comments,show_follower_counts,searchable_by_username,show_avatar_to_everyone,avatar_blurhash,is_sample').eq('user_id', id).maybeSingle(),
       sb.from('dating_preferences').select('interested_in,age_min,age_max,max_distance_km,filter_intentions,filter_interests,filter_height_min,filter_height_max,filter_drinking,filter_smoking,filter_kids').eq('user_id', id).maybeSingle(),
       sb.from('onboarding_state').select('current_step,completed_at').eq('user_id', id).maybeSingle(),
       sb.from('profile_interests').select('slug').eq('user_id', id),
@@ -134,8 +134,11 @@ export class SupabaseAccountApi implements AccountApi {
   async searchPlaces(query: string) { return (await this.rpc<PlaceRow[]>('search_places', { p_query: query })).map(this.toHit); }
   async nearestPlaces(lat: number, lng: number) { return (await this.rpc<PlaceRow[]>('nearest_places', { p_lat: lat, p_lng: lng })).map(this.toHit); }
   async saveDetails(d: ProfileDetails, visibility: VisibilityMap, opts: { religionOptIn: boolean }) { await this.rpc('save_profile_details', { p_patch: detailsPatch(d, opts) as never, p_visibility: visibility as never }); }
-  async saveAvatar(photoId: string | null, crop: AvatarCrop | null) { await this.rpc('save_avatar', { p_photo_id: photoId ?? undefined, p_crop: (crop ?? undefined) as never }); }
-  async saveSocialSettings(x: { allowComments: AllowComments; showFollowerCounts: boolean }) { await this.rpc('save_social_settings', { p_allow_comments: x.allowComments, p_show_follower_counts: x.showFollowerCounts }); }
+  async saveAvatar(photoId: string | null, crop: AvatarCrop | null, blurhash?: string | null) { await this.rpc('save_avatar', { p_photo_id: photoId ?? undefined, p_crop: (crop ?? undefined) as never, p_blurhash: blurhash ?? undefined }); }
+  async saveSocialSettings(x: { allowComments: AllowComments; showFollowerCounts: boolean; searchable: boolean; showAvatarToEveryone: boolean }) {
+    await this.rpc('save_social_settings', { p_allow_comments: x.allowComments, p_show_follower_counts: x.showFollowerCounts, p_searchable: x.searchable, p_show_avatar_to_everyone: x.showAvatarToEveryone });
+  }
+  async setAccountPrivate(isPrivate: boolean) { await this.rpc('set_account_private', { p_private: isPrivate }); }
   async recordConsent(termsVersion: string, marketing?: boolean) { await this.rpc('record_consent', { p_terms_version: termsVersion, p_confirm_18: true, p_marketing: marketing ?? undefined }); }
   async setMarketingConsent(on: boolean) { await this.rpc('set_marketing_consent', { p_on: on }); }
 

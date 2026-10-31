@@ -77,8 +77,10 @@ export interface AccountApi {
   /** The browser sends one point after an explicit click; only the chosen place is ever saved. */
   nearestPlaces(lat: number, lng: number): Promise<PlaceHit[]>;
   saveDetails(details: ProfileDetails, visibility: VisibilityMap, opts: { religionOptIn: boolean }): Promise<void>;
-  saveAvatar(photoId: string | null, crop: AvatarCrop | null): Promise<void>;
-  saveSocialSettings(s: { allowComments: AllowComments; showFollowerCounts: boolean }): Promise<void>;
+  saveAvatar(photoId: string | null, crop: AvatarCrop | null, blurhash?: string | null): Promise<void>;
+  saveSocialSettings(s: { allowComments: AllowComments; showFollowerCounts: boolean; searchable: boolean; showAvatarToEveryone: boolean }): Promise<void>;
+  /** The account-level private/public switch. Private hides posts, media and the lists from non-followers. */
+  setAccountPrivate(isPrivate: boolean): Promise<void>;
   recordConsent(termsVersion: string, marketing?: boolean): Promise<void>;
   setMarketingConsent(on: boolean): Promise<void>;
 }

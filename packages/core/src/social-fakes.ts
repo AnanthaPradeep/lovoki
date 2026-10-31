@@ -2,7 +2,7 @@ import {
   SOCIAL_RULES, SocialFailure, clampPageSize, effectiveAudience, safeCursor, takePage, validateCaption, validateComment, validateReport,
   type BlockedPerson, type CommentView, type FeedKind, type FollowStatus, type MediaRef, type NotificationType, type NotificationView,
   type Page, type PeopleKind, type PersonRow, type PostView, type ReportReason, type ReportTarget, type SocialApi, type SocialCounts,
-  type SocialErrorCode, type SocialProfileView,
+  type SocialErrorCode, type SocialProfileView, type PersonCard, type Relationship,
 } from './social';
 import type { Audience } from './types';
 import { photoDataUri } from './art';
@@ -10,8 +10,14 @@ import { photoDataUri } from './art';
 /* In-memory implementation used by MOCKED tests and the dev-only UI harness. It mirrors the documented rules, but it is
    not evidence about the database: only the integration suite (tests/integration) proves the real rules. */
 
-export interface FakeUser { id: string; name: string; visibility: Audience; bio: string; age: number; completed: boolean }
-interface FPost { id: string; authorId: string; caption: string; audience: Audience; seq: number; media: boolean }
+export interface FakeUser {
+  id: string; name: string; visibility: Audience; bio: string; age: number; completed: boolean;
+  /** Phase 4.5. Optional so older snapshots still load; defaults mirror the database defaults. */
+  username?: string; isSample?: boolean; showFollowerCounts?: boolean; showAvatarToEveryone?: boolean; searchable?: boolean; blurhash?: string | null; country?: string;
+}
+interface FPost { id: string; authorId: string; caption: string; audience: Audience; seq: number; media: boolean; w?: number; h?: number }
+export const FAKE_BLURHASH = 'LEHV6nWB2yk8pyo0adR*.7kCMdnj';
+export const handleOfUser = (u: FakeUser) => u.username ?? u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
 interface FComment { id: string; postId: string; authorId: string; body: string; seq: number }
 interface FNote { id: string; recipient: string; actor: string; type: NotificationType; postId: string | null; commentId: string | null; seq: number; read: boolean }
 
@@ -51,19 +57,24 @@ export class FakeSocialWorld {
     return user;
   }
   blockedBetween(a: string, b: string) { return this.blocks.has(key(a, b)) || this.blocks.has(key(b, a)); }
-  /** The one place the fake decides visibility, mirroring public.can_view_content(). */
-  canView(viewer: string, author: string, audience: Audience): boolean {
+  /** The one place the fake decides visibility, mirroring public.can_view_content(), including its 'avatar', 'people' and 'card' contexts. */
+  canView(viewer: string, author: string, audience: Audience | 'avatar' | 'people' | 'card'): boolean {
     if (viewer === author) return true;
     const v = this.users.get(viewer), a = this.users.get(author);
     if (!v || !a || !v.completed || !a.completed || this.blockedBetween(viewer, author)) return false;
-    return effectiveAudience(audience, a.visibility) === 'public' || this.follows.get(key(viewer, author)) === 'accepted';
+    if (audience === 'card') return true;
+    if (audience === 'avatar' && a.showAvatarToEveryone) return true;
+    if (audience === 'people' && a.showFollowerCounts === false) return false;
+    const aud: Audience = audience === 'followers' ? 'followers' : 'public';
+    return effectiveAudience(aud, a.visibility) === 'public' || this.follows.get(key(viewer, author)) === 'accepted';
   }
+  isSample(id: string) { return this.users.get(id)?.isSample === true; }
   /** Test helper: adds a post as another (or any) author without going through an API object. */
   addPost(authorId: string, caption: string, audience: Audience = 'public', media = false): string {
     const id = crypto.randomUUID(); this.posts.push({ id, authorId, caption, audience, seq: this.next(), media }); return id;
   }
   notify(recipient: string, actor: string, type: NotificationType, postId: string | null = null, commentId: string | null = null) {
-    if (recipient === actor || this.blockedBetween(recipient, actor)) return;
+    if (recipient === actor || this.blockedBetween(recipient, actor) || this.isSample(recipient)) return;
     const dup = this.notes.some((n) => n.recipient === recipient && n.actor === actor && n.type === type &&
       (type === 'like' ? n.postId === postId : type === 'comment' ? n.commentId === commentId : true));
     if (!dup) this.notes.push({ id: crypto.randomUUID(), recipient, actor, type, postId, commentId, seq: this.next(), read: false });
@@ -93,10 +104,12 @@ export class FakeSocialApi implements SocialApi {
   }
   private count(set: Set<string>, postId: string) { return [...set].filter((k) => k.startsWith(`${postId}|`) && !this.world.blockedBetween(this.me, k.split('|')[1]!)).length; }
   private view(p: FPost): PostView {
-    const w = this.world;
+    const w = this.world; const au = w.users.get(p.authorId);
     return {
-      id: p.id, authorId: p.authorId, authorName: this.name(p.authorId), authorPhotoPath: `${p.authorId}/avatar.jpg`, caption: p.caption, audience: p.audience,
-      createdAt: stamp(p.seq), media: p.media ? { path: `${p.authorId}/${p.id}/image.jpg`, contentType: 'image/jpeg' } : null,
+      id: p.id, authorId: p.authorId, authorName: this.name(p.authorId), authorUsername: au ? handleOfUser(au) : null,
+      authorPhotoPath: w.canView(this.me, p.authorId, 'avatar') ? `${p.authorId}/avatar.jpg` : null, authorBlurhash: au?.blurhash ?? FAKE_BLURHASH,
+      authorPrivate: au?.visibility === 'followers', isSample: au?.isSample === true, caption: p.caption, audience: p.audience,
+      createdAt: stamp(p.seq), media: p.media ? { path: `${p.authorId}/${p.id}/image.jpg`, contentType: 'image/jpeg', kind: 'image', thumbPath: `${p.authorId}/${p.id}/thumb.jpg`, width: p.w ?? 1080, height: p.h ?? 1350, blurhash: FAKE_BLURHASH } : null,
       likeCount: this.count(w.likes, p.id),
       commentCount: w.comments.filter((c) => c.postId === p.id && !w.blockedBetween(this.me, c.authorId)).length,
       likedByMe: w.likes.has(`${p.id}|${this.me}`), savedByMe: w.saves.has(`${p.id}|${this.me}`), isMine: p.authorId === this.me, commentsAllowed: true, cursor: cursorOf(p.seq, p.id),
@@ -123,19 +136,56 @@ export class FakeSocialApi implements SocialApi {
     await this.gate('post'); const p = this.world.posts.find((x) => x.id === id);
     return p && this.world.canView(this.me, p.authorId, p.audience) ? this.view(p) : null;
   }
-  async resolveUsername(handle: string) {
-    await this.gate('resolveUsername'); const h = handle.toLowerCase();
-    const hit = [...this.world.users.values()].find((u) => u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.') === h || u.id === h);
-    return hit && hit.completed && !this.world.blockedBetween(this.me, hit.id) ? hit.id : null;
+  private byHandle(handle: string) {
+    const h = handle.toLowerCase().replace(/^@/, '');
+    const hit = [...this.world.users.values()].find((u) => handleOfUser(u) === h || u.id === h);
+    return hit && hit.completed && !this.world.blockedBetween(this.me, hit.id) ? hit : null;
   }
+  async resolveUsername(handle: string) { await this.gate('resolveUsername'); return this.byHandle(handle)?.id ?? null; }
+  async profileByHandle(handle: string) { await this.gate('profileByHandle'); const u = this.byHandle(handle); return u ? this.buildProfile(u.id) : null; }
+  async profilePosts(handle: string, cursor?: string | null) {
+    await this.gate('profilePosts'); const u = this.byHandle(handle);
+    return this.page(u ? this.world.posts.filter((p) => p.authorId === u.id) : [], cursor);
+  }
+  private card(id: string, status: FollowStatus | null, seq = 0): PersonCard {
+    const u = this.world.users.get(id)!;
+    return { userId: id, username: handleOfUser(u), displayName: u.name, photoPath: this.world.canView(this.me, id, 'avatar') ? `${id}/avatar.jpg` : null, avatarBlurhash: u.blurhash ?? FAKE_BLURHASH, avatarCrop: null,
+      isPrivate: u.visibility === 'followers', isSample: u.isSample === true, followStatus: status, cursor: cursorOf(seq, id) };
+  }
+  private people_(handle: string, kind: 'followers' | 'following'): Page<PersonCard> {
+    const t = this.byHandle(handle); const w = this.world;
+    if (!t || !w.canView(this.me, t.id, 'people')) return { items: [], next: null };
+    const items: PersonCard[] = [];
+    w.follows.forEach((st, k) => {
+      const [a, b] = k.split('>') as [string, string];
+      const other = kind === 'followers' ? (b === t.id ? a : null) : (a === t.id ? b : null);
+      if (other && st === 'accepted' && w.users.get(other)?.completed && !w.blockedBetween(this.me, other)) items.push(this.card(other, w.follows.get(key(this.me, other)) ?? null));
+    });
+    return { items: items.sort((x, y) => x.displayName.localeCompare(y.displayName)), next: null };
+  }
+  async followersOf(handle: string) { await this.gate('followersOf'); return this.people_(handle, 'followers'); }
+  async followingOf(handle: string) { await this.gate('followingOf'); return this.people_(handle, 'following'); }
+  async search(query: string): Promise<PersonCard[]> {
+    await this.gate('search'); const q = query.trim().toLowerCase();
+    if ([...q].length < 2) return [];
+    return [...this.world.users.values()].filter((u) => u.id !== this.me && u.completed && u.searchable !== false && this.world.canView(this.me, u.id, 'card')
+      && (handleOfUser(u).startsWith(q) || u.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || u.name.toLowerCase().startsWith(q)))
+      .slice(0, 10).map((u) => this.card(u.id, this.world.follows.get(key(this.me, u.id)) ?? null));
+  }
+  async suggested(): Promise<PersonCard[]> {
+    await this.gate('suggested'); const me = this.world.users.get(this.me);
+    return [...this.world.users.values()].filter((u) => u.id !== this.me && u.completed && u.visibility === 'public' && !this.world.blockedBetween(this.me, u.id) && !this.world.follows.has(key(this.me, u.id)))
+      .sort((a, b) => Number(b.country === me?.country) - Number(a.country === me?.country) || a.name.localeCompare(b.name)).slice(0, 12).map((u) => this.card(u.id, null));
+  }
+  async sampleFlags(ids: string[]) { await this.gate('sampleFlags'); return new Set(ids.filter((i) => this.world.isSample(i))); }
   async savedPosts(cursor?: string | null) { await this.gate('savedPosts'); return this.page(this.world.posts.filter((p) => this.world.saves.has(`${p.id}|${this.me}`)), cursor); }
-  async createPost(i: { id: string; caption: string; audience: Audience; image: Blob | null }) {
+  async createPost(i: { id: string; caption: string; audience: Audience; image: Blob | null; thumb?: Blob | null; size?: { width: number; height: number } | null; blurhash?: string | null }) {
     await this.gate('createPost');
     const bad = validateCaption(i.caption, !!i.image);
     if (bad) throw err('invalid', bad);
     const dup = this.world.posts.find((p) => p.id === i.id);
     if (dup) { if (dup.authorId === this.me) return; throw err('invalid', 'That post was already created.'); }
-    this.world.posts.push({ id: i.id, authorId: this.me, caption: i.caption.trim(), audience: i.audience, seq: this.world.next(), media: !!i.image });
+    this.world.posts.push({ id: i.id, authorId: this.me, caption: i.caption.trim(), audience: i.audience, seq: this.world.next(), media: !!i.image, w: i.size?.width, h: i.size?.height });
   }
   async deletePost(id: string) {
     await this.gate('deletePost');
@@ -233,19 +283,23 @@ export class FakeSocialApi implements SocialApi {
     });
     return { following, followers, requests };
   }
-  async profile(userId: string): Promise<SocialProfileView | null> {
-    await this.gate('profile'); const w = this.world; const u = w.users.get(userId);
+  private buildProfile(userId: string): SocialProfileView | null {
+    const w = this.world; const u = w.users.get(userId);
     if (!u || !u.completed || w.blockedBetween(this.me, userId)) return null;
-    const full = w.canView(this.me, userId, 'public');
+    const full = w.canView(this.me, userId, 'public'); const self = userId === this.me;
+    const counts = self || u.showFollowerCounts !== false;
     const acc = (pred: (a: string, b: string) => boolean) => [...w.follows].filter(([k, s]) => s === 'accepted' && pred(...(k.split('>') as [string, string]))).length;
+    const mine = w.follows.get(key(this.me, userId)) ?? null;
+    const relationship: Relationship = self ? 'self' : mine === 'accepted' ? 'follower' : mine === 'pending' ? 'pending' : 'stranger';
     return {
-      userId, username: u.name.toLowerCase().replace(/[^a-z0-9]+/g, '.'), displayName: u.name, gender: null, genderCustom: null, avatarCrop: null, interests: [], prompts: [], details: {}, pronouns: full ? '' : null, bio: full ? u.bio : null, areaLabel: full ? 'Lisbon' : null, age: full ? u.age : null,
-      photoPath: full ? `${userId}/avatar.jpg` : null, restricted: !full, isSelf: userId === this.me,
-      followStatus: w.follows.get(key(this.me, userId)) ?? null, followsMeStatus: w.follows.get(key(userId, this.me)) ?? null,
-      followerCount: full ? acc((_a, b) => b === userId) : null, followingCount: full ? acc((a) => a === userId) : null,
-      postCount: full ? w.posts.filter((p) => p.authorId === userId && w.canView(this.me, userId, p.audience)).length : null,
+      userId, username: handleOfUser(u), displayName: u.name, gender: null, genderCustom: null, avatarCrop: null, interests: [], prompts: [], details: {}, pronouns: full ? '' : null, bio: u.bio, areaLabel: full ? 'Lisbon' : null, age: full ? u.age : null,
+      photoPath: w.canView(this.me, userId, 'avatar') ? `${userId}/avatar.jpg` : null, avatarBlurhash: u.blurhash ?? FAKE_BLURHASH, isPrivate: u.visibility === 'followers', isSample: u.isSample === true, relationship,
+      restricted: !full, isSelf: self, followStatus: mine, followsMeStatus: w.follows.get(key(userId, this.me)) ?? null,
+      followerCount: counts ? acc((_a, b) => b === userId) : null, followingCount: counts ? acc((a) => a === userId) : null,
+      postCount: !counts ? null : full ? w.posts.filter((p) => p.authorId === userId && w.canView(this.me, userId, p.audience)).length : w.posts.filter((p) => p.authorId === userId).length,
     };
   }
+  async profile(userId: string): Promise<SocialProfileView | null> { await this.gate('profile'); return this.buildProfile(userId); }
   async block(userId: string) {
     await this.gate('block'); const w = this.world;
     if (userId === this.me) throw err('invalid', 'You can’t block yourself.');
@@ -271,6 +325,8 @@ export class FakeSocialApi implements SocialApi {
     const bad = validateReport(reason, details); if (bad) throw err('invalid', bad);
     if (this.world.reports.filter((r) => r.reporter === this.me).length >= 10) throw err('rate_limited', 'You’ve sent a lot of reports. Try again later.');
     if (target === 'post') this.visiblePost(targetId);
+    const owner = target === 'post' ? this.world.posts.find((p) => p.id === targetId)?.authorId : target === 'profile' ? targetId : this.world.comments.find((c) => c.id === targetId)?.authorId;
+    if (owner && this.world.isSample(owner)) throw err('sample', 'This is sample content, so there is nobody to report.');
     this.world.reports.push({ reporter: this.me, type: target, target: targetId, reason, details: details.trim() });
   }
   async mediaUrls(refs: MediaRef[]) {

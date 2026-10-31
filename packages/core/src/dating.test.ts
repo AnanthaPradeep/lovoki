@@ -5,7 +5,7 @@ import {
   haversineKm, isDiscoverCursor, matchedAgo, roundCoord, safeDiscoverCursor, wantsGender, type DatingCard, type DeckState, type Prefs,
 } from './index';
 
-const card = (n: number): DatingCard => ({ id: `c${n}`, userId: `c${n}`, displayName: `C${n}`, username: null, genderCustom: null, avatarPath: null, avatarCrop: null, details: {}, age: 30, gender: null, areaLabel: '', distanceBucket: null, intention: 'long-term', interests: [], prompts: [], photoPaths: [], bio: '', pronouns: null, cursor: `d|${n}` });
+const card = (n: number): DatingCard => ({ id: `c${n}`, userId: `c${n}`, displayName: `C${n}`, username: null, isSample: false, genderCustom: null, avatarPath: null, avatarCrop: null, details: {}, age: 30, gender: null, areaLabel: '', distanceBucket: null, intention: 'long-term', interests: [], prompts: [], photoPaths: [], bio: '', pronouns: null, cursor: `d|${n}` });
 const deck = (n: number): DeckState => deckReducer(emptyDeck(), { type: 'replace', page: { items: Array.from({ length: n }, (_, i) => card(i)), next: null } });
 
 describe('distance helpers', () => {

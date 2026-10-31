@@ -9,7 +9,7 @@ const blank = (): Account => ({
   userId: 'u1', email: 'a@example.com', displayName: '', pronouns: '', dateOfBirth: null, age: null, bio: '', interests: [], prompts: [],
   intention: null, interestedIn: [], ageMin: 18, ageMax: 60, maxDistanceKm: null, areaLabel: '', socialVisibility: 'public', datingDiscoverable: true,
   photos: [], onboarding: { currentStep: 'basics', completedAt: null },
-  username: null, gender: null, genderCustom: null, showGender: true, showDistance: true, place: null, avatarPhotoId: null, avatarCrop: null, details: emptyDetails(), visibility: {},
+  username: null, gender: null, genderCustom: null, showGender: true, showDistance: true, place: null, avatarPhotoId: null, avatarCrop: null, searchable: true, showAvatarToEveryone: false, avatarBlurhash: null, isSample: false, details: emptyDetails(), visibility: {},
   allowComments: 'everyone', showFollowerCounts: true, consent: null,
   filterIntentions: [], filterInterests: [], filterHeightMin: null, filterHeightMax: null, filterDrinking: [], filterSmoking: [], filterKids: [],
 });

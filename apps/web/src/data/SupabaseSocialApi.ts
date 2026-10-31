@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  SOCIAL_RULES, SocialFailure, interestLabel, type AvatarCrop, type VisibleDetails, extForType, safeCursor, sniffImageType, takePage, validateCaption, validateComment, validateReport, validateStoredPhoto,
+  SIGNED_URL_CACHE_MS, SIGNED_URL_TTL_S, SOCIAL_RULES, SocialFailure, interestLabel, type PersonCard, type Relationship, type AvatarCrop, type VisibleDetails, extForType, safeCursor, sniffImageType, takePage, validateCaption, validateComment, validateReport, validateStoredPhoto,
   type Audience, type BlockedPerson, type CommentView, type FeedKind, type FollowStatus, type MediaRef, type NotificationType,
   type NotificationView, type Page, type PeopleKind, type PersonRow, type PostView, type ReportReason, type ReportTarget, type SocialApi,
   type SocialCounts, type SocialProfileView, type UserScope,
@@ -17,6 +17,7 @@ export function toSocialFailure(e: unknown): SocialFailure {
   const r: DbError = typeof e === 'object' && e ? (e as DbError) : {};
   const m = r.message ?? '';
   if (e instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(m)) return new SocialFailure('network', 'Can’t reach LOVOKI. Check your connection and try again.');
+  if (m.includes('LOVOKI_SAMPLE_TARGET')) return new SocialFailure('sample', 'This is sample content, so there is nobody to report.');
   if (m.includes('LOVOKI_NOT_FOUND')) return new SocialFailure('not_found', 'That isn’t available any more. It may have been removed or you may no longer have access.');
   if (m.includes('LOVOKI_RATE_LIMITED')) return new SocialFailure('rate_limited', 'You’ve sent a lot of reports recently. Try again in a while.');
   if (m.includes('LOVOKI_INVALID_CURSOR')) return new SocialFailure('invalid_cursor', 'That list is out of date. Reload to continue.');
@@ -28,8 +29,8 @@ export function toSocialFailure(e: unknown): SocialFailure {
   return new SocialFailure('unknown', 'Something went wrong. Try again.');
 }
 
-const SIGNED_TTL_S = 3600;
-const CACHE_MS = 50 * 60 * 1000;
+type PostRowDb = Database['public']['CompositeTypes']['post_row'];
+type CardRowDb = Database['public']['CompositeTypes']['person_card'];
 
 export class SupabaseSocialApi implements SocialApi {
   /** `${bucket}:${path}` -> signed url. Cleared on logout through UserScope. */
@@ -49,11 +50,29 @@ export class SupabaseSocialApi implements SocialApi {
     return safe ?? undefined;
   }
 
-  private toPost = (r: Row<'feed_page'>): PostView => ({
-    id: r.post_id, authorId: r.author_id, authorName: r.author_name ?? 'Someone', authorPhotoPath: r.author_photo_path ?? null, caption: r.caption,
-    audience: r.audience as Audience, createdAt: r.created_at, media: r.media_path ? { path: r.media_path, contentType: r.media_type } : null,
-    likeCount: r.like_count, commentCount: r.comment_count, likedByMe: r.liked_by_me, savedByMe: r.saved_by_me, isMine: r.is_mine, commentsAllowed: r.comments_allowed, cursor: r.page_cursor,
+  private toPost = (r: PostRowDb): PostView => ({
+    id: r.post_id ?? '', authorId: r.author_id ?? '', authorName: r.author_name ?? 'Someone', authorUsername: r.author_username ?? null, authorPhotoPath: r.author_photo_path ?? null,
+    authorBlurhash: r.author_blurhash ?? null, authorPrivate: r.author_private ?? false, isSample: r.is_sample ?? false, caption: r.caption ?? '',
+    audience: (r.audience ?? 'public') as Audience, createdAt: r.created_at ?? '',
+    media: r.media_path ? { path: r.media_path, contentType: r.media_type ?? 'image/jpeg', kind: r.media_kind === 'video' ? 'video' : 'image', thumbPath: r.thumb_path ?? null,
+      width: r.media_width ?? null, height: r.media_height ?? null, blurhash: r.media_blurhash ?? null } : null,
+    likeCount: r.like_count ?? 0, commentCount: r.comment_count ?? 0, likedByMe: r.liked_by_me ?? false, savedByMe: r.saved_by_me ?? false, isMine: r.is_mine ?? false,
+    commentsAllowed: r.comments_allowed ?? true, cursor: r.page_cursor ?? '',
   });
+  private toCard = (r: CardRowDb): PersonCard => ({
+    userId: r.user_id ?? '', username: r.username ?? null, displayName: r.display_name ?? 'Someone', photoPath: r.photo_path ?? null, avatarBlurhash: r.avatar_blurhash ?? null,
+    avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, isPrivate: r.is_private ?? false, isSample: r.is_sample ?? false, followStatus: (r.follow_status ?? null) as FollowStatus | null, cursor: r.page_cursor ?? '',
+  });
+  private toProfile(r: Row<'social_profile'>): SocialProfileView {
+    return {
+      userId: r.user_id, username: r.username ?? null, displayName: r.display_name ?? 'Someone', gender: r.gender ?? null, genderCustom: r.gender_custom ?? null,
+      avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, avatarBlurhash: r.avatar_blurhash ?? null, isPrivate: r.is_private, isSample: r.is_sample, relationship: r.relationship as Relationship,
+      interests: (r.interests ?? []).map((x: string) => interestLabel(x) ?? x), prompts: (Array.isArray(r.prompts) ? r.prompts : []) as { question: string; answer: string }[],
+      details: (r.details ?? {}) as VisibleDetails, pronouns: r.pronouns ?? null, bio: r.bio ?? null, areaLabel: r.area_label ?? null, age: r.age ?? null,
+      photoPath: r.photo_path ?? null, restricted: r.restricted, isSelf: r.is_self, followStatus: (r.follow_status ?? null) as FollowStatus | null,
+      followsMeStatus: (r.follows_me_status ?? null) as FollowStatus | null, followerCount: r.follower_count ?? null, followingCount: r.following_count ?? null, postCount: r.post_count ?? null,
+    };
+  }
 
   async feed(kind: FeedKind, cursor?: string | null): Promise<Page<PostView>> {
     const rows = await this.rpc('feed_page', { p_feed: kind, p_limit: SOCIAL_RULES.pageSize, p_cursor: this.cursor(cursor) });
@@ -67,14 +86,36 @@ export class SupabaseSocialApi implements SocialApi {
     return r ? this.toPost(r as Row<'feed_page'>) : null;
   }
   async resolveUsername(handle: string) { return ((await this.rpc('resolve_username', { p_handle: handle })) as string | null) ?? null; }
+  async profileByHandle(handle: string): Promise<SocialProfileView | null> {
+    const r = (await this.rpc('get_social_profile', { p_handle: handle }))[0];
+    return r ? this.toProfile(r) : null;
+  }
+  async profilePosts(handle: string, cursor?: string | null) {
+    return takePage((await this.rpc('list_profile_posts', { p_handle: handle, p_limit: SOCIAL_RULES.pageSize, p_cursor: this.cursor(cursor) })).map(this.toPost));
+  }
+  async followersOf(handle: string, cursor?: string | null) {
+    return takePage((await this.rpc('list_followers', { p_handle: handle, p_limit: 20, p_cursor: this.cursor(cursor) })).map(this.toCard), 20);
+  }
+  async followingOf(handle: string, cursor?: string | null) {
+    return takePage((await this.rpc('list_following', { p_handle: handle, p_limit: 20, p_cursor: this.cursor(cursor) })).map(this.toCard), 20);
+  }
+  async search(query: string): Promise<PersonCard[]> {
+    if ([...query.trim()].length < 2) return [];
+    return (await this.rpc('search_profiles', { p_q: query.trim(), p_limit: 10 })).map(this.toCard);
+  }
+  async suggested(): Promise<PersonCard[]> { return (await this.rpc('suggested_people', { p_limit: 12 })).map(this.toCard); }
+  async sampleFlags(ids: string[]) {
+    if (!ids.length) return new Set<string>();
+    return new Set((await this.rpc('sample_flags', { p_ids: ids })).filter((r: Row<'sample_flags'>) => r.is_sample).map((r: Row<'sample_flags'>) => r.user_id));
+  }
   async savedPosts(cursor?: string | null) {
     return takePage((await this.rpc('saved_posts_page', { p_limit: SOCIAL_RULES.pageSize, p_cursor: this.cursor(cursor) })).map(this.toPost));
   }
 
-  async createPost(i: { id: string; caption: string; audience: Audience; image: Blob | null }) {
+  async createPost(i: { id: string; caption: string; audience: Audience; image: Blob | null; thumb?: Blob | null; size?: { width: number; height: number } | null; blurhash?: string | null }) {
     const bad = validateCaption(i.caption, !!i.image);
     if (bad) throw new SocialFailure('invalid', bad);
-    let path: string | undefined;
+    let path: string | undefined; let thumbPath: string | undefined;
     if (i.image) {
       const stored = validateStoredPhoto(i.image);
       if (stored) throw new SocialFailure('invalid', stored);
@@ -83,11 +124,19 @@ export class SupabaseSocialApi implements SocialApi {
       path = `${this.userId}/${i.id}/${crypto.randomUUID()}.${extForType(sniffed)}`; // the client never chooses a free-form name
       const up = await this.sb.storage.from('post-media').upload(path, i.image, { contentType: sniffed, upsert: false, cacheControl: '3600' });
       if (up.error) throw toSocialFailure(up.error);
+      if (i.thumb) {
+        const thumbBad = validateStoredPhoto(i.thumb);
+        if (thumbBad) { await this.sb.storage.from('post-media').remove([path]).catch(() => undefined); throw new SocialFailure('invalid', thumbBad); }
+        thumbPath = `${this.userId}/${i.id}/${crypto.randomUUID()}.jpg`;
+        const tu = await this.sb.storage.from('post-media').upload(thumbPath, i.thumb, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+        if (tu.error) { await this.sb.storage.from('post-media').remove([path]).catch(() => undefined); throw toSocialFailure(tu.error); }
+      }
     }
     try {
-      await this.rpc('create_post', { p_post_id: i.id, p_caption: i.caption, p_audience: i.audience, p_media_path: path });
+      await this.rpc('create_post', { p_post_id: i.id, p_caption: i.caption, p_audience: i.audience, p_media_path: path, p_thumb_path: thumbPath, p_width: i.size?.width, p_height: i.size?.height, p_blurhash: i.blurhash ?? undefined });
     } catch (e) {
-      if (path) await this.sb.storage.from('post-media').remove([path]).catch(() => undefined); // do not leave an unregistered object behind
+      const stale = [path, thumbPath].filter((x): x is string => !!x);
+      if (stale.length) await this.sb.storage.from('post-media').remove(stale).catch(() => undefined); // do not leave unregistered objects behind
       throw e;
     }
   }
@@ -130,14 +179,7 @@ export class SupabaseSocialApi implements SocialApi {
   async counts(): Promise<SocialCounts> { const r = (await this.rpc('social_counts'))[0]; return { following: r?.following ?? 0, followers: r?.followers ?? 0, requests: r?.requests ?? 0 }; }
   async profile(userId: string): Promise<SocialProfileView | null> {
     const r = (await this.rpc('social_profile', { p_user: userId }))[0];
-    if (!r) return null;
-    return {
-      userId: r.user_id, username: r.username ?? null, displayName: r.display_name ?? 'Someone', gender: r.gender ?? null, genderCustom: r.gender_custom ?? null,
-      avatarCrop: (r.avatar_crop ?? null) as AvatarCrop | null, interests: (r.interests ?? []).map((x: string) => interestLabel(x) ?? x), prompts: (Array.isArray(r.prompts) ? r.prompts : []) as { question: string; answer: string }[],
-      details: (r.details ?? {}) as VisibleDetails, pronouns: r.pronouns ?? null, bio: r.bio ?? null, areaLabel: r.area_label ?? null, age: r.age ?? null,
-      photoPath: r.photo_path ?? null, restricted: r.restricted, isSelf: r.is_self, followStatus: (r.follow_status ?? null) as FollowStatus | null,
-      followsMeStatus: (r.follows_me_status ?? null) as FollowStatus | null, followerCount: r.follower_count ?? null, followingCount: r.following_count ?? null, postCount: r.post_count ?? null,
-    };
+    return r ? this.toProfile(r) : null;
   }
 
   async block(userId: string) { await this.rpc('block_user', { p_user: userId }); }
@@ -172,9 +214,9 @@ export class SupabaseSocialApi implements SocialApi {
       else (missing.get(r.bucket) ?? missing.set(r.bucket, new Set()).get(r.bucket)!).add(r.path);
     }
     await Promise.all([...missing].map(async ([bucket, paths]) => {
-      const { data, error } = await this.sb.storage.from(bucket).createSignedUrls([...paths], SIGNED_TTL_S);
+      const { data, error } = await this.sb.storage.from(bucket).createSignedUrls([...paths], SIGNED_URL_TTL_S);
       if (error || !data) return;
-      for (const d of data) if (d.path && d.signedUrl && !d.error) { this.urls.set(`${bucket}:${d.path}`, { url: d.signedUrl, exp: Date.now() + CACHE_MS }); out.set(d.path, d.signedUrl); }
+      for (const d of data) if (d.path && d.signedUrl && !d.error) { this.urls.set(`${bucket}:${d.path}`, { url: d.signedUrl, exp: Date.now() + SIGNED_URL_CACHE_MS }); out.set(d.path, d.signedUrl); }
     }));
     return out;
   }

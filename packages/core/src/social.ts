@@ -18,16 +18,34 @@ export const SOCIAL_RULES = {
   maxPageSize: 20,
   /** Same limits as profile photos: the post-media bucket accepts JPEG/PNG/WebP up to 5 MB. */
   maxImagesPerPost: 1,
+  /** Grid thumbnails are generated in the browser at upload; the original stays for the post page. */
+  thumbMaxPx: 400,
 } as const;
 
+/** Signed URLs for private media live this long and are never cached past it (see docs/PHASE_4_5_SETUP.md for the residual risk). */
+export const SIGNED_URL_TTL_S = 120;
+export const SIGNED_URL_CACHE_MS = 90_000;
+
 export interface MediaRef { bucket: MediaBucket; path: string }
-export interface PostMedia { path: string; contentType: string }
+export type MediaKind = 'image' | 'video';
+export interface PostMedia {
+  path: string; contentType: string; kind: MediaKind;
+  /** About 400 px wide, same audience as the original. Null for posts made before thumbnails existed. */
+  thumbPath: string | null; width: number | null; height: number | null; blurhash: string | null;
+}
+export type Relationship = 'self' | 'follower' | 'pending' | 'stranger';
 
 export interface PostView {
   id: string;
   authorId: string;
   authorName: string;
+  authorUsername: string | null;
   authorPhotoPath: string | null;
+  /** Placeholder shown while the avatar loads, and instead of it when the viewer may not see the real picture. */
+  authorBlurhash: string | null;
+  authorPrivate: boolean;
+  /** Sample content is always labelled. It is fictional and reaches no real person. */
+  isSample: boolean;
   caption: string;
   audience: Audience;
   createdAt: string;
@@ -57,13 +75,21 @@ export interface NotificationView {
   followStatus: FollowStatus | null; cursor: string;
 }
 
+/** The limited card used by search, follower lists and suggestions. Nothing here depends on the account being visible. */
+export interface PersonCard {
+  userId: string; username: string | null; displayName: string; photoPath: string | null; avatarBlurhash: string | null; avatarCrop: AvatarCrop | null;
+  isPrivate: boolean; isSample: boolean; followStatus: FollowStatus | null; cursor: string;
+}
 export interface PersonRow { userId: string; displayName: string; photoPath: string | null; status: FollowStatus; createdAt: string; cursor: string }
 export type PeopleKind = 'following' | 'followers' | 'requests';
 export interface SocialCounts { following: number; followers: number; requests: number }
 
 export interface SocialProfileView {
   userId: string; username: string | null; displayName: string; pronouns: string | null; bio: string | null; areaLabel: string | null; age: number | null;
-  gender: string | null; genderCustom: string | null; photoPath: string | null; avatarCrop: AvatarCrop | null; interests: string[]; prompts: { question: string; answer: string }[];
+  gender: string | null; genderCustom: string | null; photoPath: string | null; avatarCrop: AvatarCrop | null;
+  /** Present whenever the owner has an avatar: the blurred stand-in for a picture this viewer may not see. */
+  avatarBlurhash: string | null; isPrivate: boolean; isSample: boolean; relationship: Relationship;
+  interests: string[]; prompts: { question: string; answer: string }[];
   /** Only the optional fields this viewer may see. */
   details: VisibleDetails;
   /** True when the viewer may only see a name (followers-only profile, not an accepted follower). */
@@ -89,7 +115,7 @@ export const REPORT_REASONS = [
 ] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number]['value'];
 
-export type SocialErrorCode = 'not_found' | 'rate_limited' | 'invalid' | 'invalid_cursor' | 'incomplete' | 'unauthorized' | 'network' | 'unknown';
+export type SocialErrorCode = 'sample' | 'not_found' | 'rate_limited' | 'invalid' | 'invalid_cursor' | 'incomplete' | 'unauthorized' | 'network' | 'unknown';
 export class SocialFailure extends Error {
   readonly code: SocialErrorCode;
   constructor(code: SocialErrorCode, message: string) { super(message); this.name = 'SocialFailure'; this.code = code; }
@@ -103,7 +129,7 @@ export interface SocialApi {
   /** One post, or null when it doesn't exist or you may not see it (the same answer for both). */
   post(id: string): Promise<PostView | null>;
   /** `id` is chosen by the client so the media path can name the post before it exists. `image` is already processed. */
-  createPost(input: { id: string; caption: string; audience: Audience; image: Blob | null }): Promise<void>;
+  createPost(input: { id: string; caption: string; audience: Audience; image: Blob | null; thumb?: Blob | null; size?: { width: number; height: number } | null; blurhash?: string | null }): Promise<void>;
   deletePost(id: string): Promise<void>;
   setAudience(id: string, audience: Audience): Promise<void>;
   like(id: string): Promise<{ liked: boolean; likeCount: number }>;
@@ -122,6 +148,19 @@ export interface SocialApi {
   profile(userId: string): Promise<SocialProfileView | null>;
   /** Resolves /@handle to a person you may see, or null. */
   resolveUsername(handle: string): Promise<string | null>;
+  /** The one profile read for /@handle: exactly what your relationship allows, or null when it does not exist or you are blocked. */
+  profileByHandle(handle: string): Promise<SocialProfileView | null>;
+  /** The grid. An empty page for an account you may not see, the same answer as "no posts". */
+  profilePosts(handle: string, cursor?: string | null): Promise<Page<PostView>>;
+  /** Gated: empty unless you are the owner, or you may see the account and the owner has not hidden the lists. */
+  followersOf(handle: string, cursor?: string | null): Promise<Page<PersonCard>>;
+  followingOf(handle: string, cursor?: string | null): Promise<Page<PersonCard>>;
+  /** Prefix search on handle and display name. Returns [] for fewer than 2 characters. */
+  search(query: string): Promise<PersonCard[]>;
+  /** Public, finished, unblocked accounts you do not follow yet. Same country first, otherwise newest. No personalisation. */
+  suggested(): Promise<PersonCard[]>;
+  /** Which of these (ids from cards you already hold) are sample accounts. */
+  sampleFlags(ids: string[]): Promise<Set<string>>;
   block(userId: string): Promise<void>;
   unblock(userId: string): Promise<void>;
   blocked(): Promise<BlockedPerson[]>;
@@ -317,11 +356,11 @@ export const unreadLabel = (n: number) => (n > 99 ? '99+' : String(Math.max(0, n
 
 export type FollowAction = 'follow' | 'request' | 'unfollow' | 'cancel' | 'none';
 /** What the profile's main button should do, from the viewer's current relationship and the profile's audience. */
-export function followAction(p: Pick<SocialProfileView, 'isSelf' | 'followStatus' | 'restricted'>, profileVisibility: Audience | 'unknown' = 'unknown'): FollowAction {
+export function followAction(p: Pick<SocialProfileView, 'isSelf' | 'followStatus' | 'restricted'> & { isPrivate?: boolean }, profileVisibility: Audience | 'unknown' = 'unknown'): FollowAction {
   if (p.isSelf) return 'none';
   if (p.followStatus === 'accepted') return 'unfollow';
   if (p.followStatus === 'pending') return 'cancel';
-  return p.restricted || profileVisibility === 'followers' ? 'request' : 'follow';
+  return p.isPrivate || p.restricted || profileVisibility === 'followers' ? 'request' : 'follow';
 }
 export const followActionLabel: Record<FollowAction, string> = { follow: 'Follow', request: 'Request to follow', unfollow: 'Following', cancel: 'Requested', none: '' };
 
@@ -332,4 +371,58 @@ export function postedAgo(iso: string, now = Date.now()): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h`;
   if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+
+/* ------------------------------------------------------------ Phase 4.5 helpers */
+
+/** Compact counts for profile headers: 999, 1.2K, 12K, 3.4M. Truncates, so 999,999 reads 999K and never "1000K". */
+export function formatCount(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n) || n < 0) return '–';
+  const v = Math.trunc(n);
+  if (v < 1000) return String(v);
+  const unit = (x: number, suffix: string) => { const t = Math.floor(x * 10) / 10; return `${t >= 100 || Number.isInteger(t) ? Math.trunc(t) : t.toFixed(1)}${suffix}`; };
+  if (v < 1_000_000) return unit(v / 1000, 'K');
+  if (v < 1_000_000_000) return unit(v / 1_000_000, 'M');
+  return unit(v / 1_000_000_000, 'B');
+}
+
+/** The blurhash alphabet (base 83). The database enforces the same shape; this keeps junk out of an image decoder. */
+export const BLURHASH_RE = /^[0-9A-Za-z#$%*+,.:;=?@[\]^_{|}~-]{6,120}$/;
+export const isBlurhash = (s: unknown): s is string => typeof s === 'string' && BLURHASH_RE.test(s);
+
+function decodeSafe(s: string) { try { return decodeURIComponent(s); } catch { return ''; } }
+/** A handle as typed in a URL: "@Name" or "name", never more than a plain handle. Returns null when it cannot be one. */
+export function handleFromParam(raw: string | undefined | null): string | null {
+  const t = decodeSafe((raw ?? '').trim()).replace(/^@/, '').toLowerCase();
+  return /^[a-z0-9._]{3,30}$/.test(t) ? t : null;
+}
+
+/** What the lock panel says. */
+export function privateLockCopy(p: Pick<SocialProfileView, 'followStatus' | 'displayName'>): { title: string; body: string } {
+  return p.followStatus === 'pending'
+    ? { title: 'Request sent', body: `${p.displayName} has to accept before you can see their photos and videos.` }
+    : { title: 'This account is private', body: 'Follow to see their photos and videos.' };
+}
+
+export interface PrivacyFacts {
+  isPrivate: boolean; showAvatarToEveryone: boolean; showFollowerCounts: boolean; searchable: boolean; datingDiscoverable: boolean;
+}
+/** The Settings "Privacy overview": exactly who sees what, for both layers, in plain words. Pure, so it is unit tested. */
+export function privacyOverview(f: PrivacyFacts): { social: { label: string; value: string }[]; dating: { label: string; value: string }[] } {
+  return {
+    social: [
+      { label: 'Your posts, photos and videos', value: f.isPrivate ? 'Only people you accept as followers' : 'Anyone on LOVOKI with a finished profile. Posts set to Followers stay with your followers.' },
+      { label: 'Your followers and following lists', value: f.showFollowerCounts ? (f.isPrivate ? 'You and your followers' : 'Anyone on LOVOKI') : 'Only you' },
+      { label: 'Your profile picture', value: f.isPrivate && !f.showAvatarToEveryone ? 'Blurred for everyone except your followers' : 'Everyone on LOVOKI' },
+      { label: 'Your @username, name and bio', value: 'Anyone on LOVOKI, even if your account is private' },
+      { label: 'Post, follower and following counts', value: f.showFollowerCounts ? 'Anyone on LOVOKI' : 'Only you' },
+      { label: 'Search by @username or name', value: f.searchable ? 'You can be found by anyone on LOVOKI' : 'Hidden from search' },
+    ],
+    dating: [
+      { label: 'Your dating photos and profile', value: f.datingDiscoverable ? 'People who fit your preferences and whose preferences you fit, in Discover' : 'Nobody. Dating is paused until you turn on Show me in Discover' },
+      { label: 'A private social account', value: 'Does not hide you in Discover. Dating and social are separate switches' },
+      { label: 'Your exact location and date of birth', value: 'Nobody. Others only see a distance range and your age' },
+    ],
+  };
 }

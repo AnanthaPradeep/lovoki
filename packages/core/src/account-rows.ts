@@ -10,7 +10,8 @@ export interface AccountRows {
   userId: string; email: string | null;
   private: { date_of_birth: string | null };
   profile: { display_name: string | null; pronouns: string; bio: string; intention: string | null; area_label: string; social_visibility: string; dating_discoverable: boolean; gender?: string | null; show_gender?: boolean; show_distance?: boolean;
-    username?: string | null; gender_custom?: string | null; avatar_photo_id?: string | null; avatar_crop?: AvatarCrop | null; allow_comments?: string; show_follower_counts?: boolean };
+    username?: string | null; gender_custom?: string | null; avatar_photo_id?: string | null; avatar_crop?: AvatarCrop | null; allow_comments?: string; show_follower_counts?: boolean;
+    searchable_by_username?: boolean; show_avatar_to_everyone?: boolean; avatar_blurhash?: string | null; is_sample?: boolean };
   prefs: { interested_in: string[]; age_min: number; age_max: number; max_distance_km: number | null; filter_intentions?: string[]; filter_interests?: string[];
     filter_height_min?: number | null; filter_height_max?: number | null; filter_drinking?: string[]; filter_smoking?: string[]; filter_kids?: string[] };
   /** From my_place(): a label and ids, never coordinates. */
@@ -56,6 +57,8 @@ export function accountFromRows(r: AccountRows, today = todayLocalIso()): Accoun
     avatarPhotoId: r.profile.avatar_photo_id ?? null, avatarCrop: r.profile.avatar_crop ?? null,
     details: detailsFromRow(r.details), visibility: r.details?.visibility ?? {},
     allowComments: r.profile.allow_comments === 'followers' || r.profile.allow_comments === 'nobody' ? r.profile.allow_comments : 'everyone', showFollowerCounts: r.profile.show_follower_counts ?? true,
+    searchable: r.profile.searchable_by_username ?? true, showAvatarToEveryone: r.profile.show_avatar_to_everyone ?? false,
+    avatarBlurhash: r.profile.avatar_blurhash ?? null, isSample: r.profile.is_sample ?? false,
     consent: r.consent ? { termsVersion: r.consent.terms_version, marketing: r.consent.marketing } : null,
     filterHeightMin: r.prefs.filter_height_min ?? null, filterHeightMax: r.prefs.filter_height_max ?? null,
     filterDrinking: r.prefs.filter_drinking ?? [], filterSmoking: r.prefs.filter_smoking ?? [], filterKids: r.prefs.filter_kids ?? [],
