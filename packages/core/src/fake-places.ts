@@ -4,7 +4,7 @@ import { haversineKm, type PlaceHit } from './dating';
 
 export interface FakePlace extends PlaceHit { id: number; lat: number; lng: number }
 const p = (id: number, name: string, region: string, countryCode: string, country: string, lat: number, lng: number): FakePlace =>
-  ({ id, name, region, countryCode, country, lat, lng, label: `${name}, ${region ? region + ', ' : ''}${country}` });
+  ({ id, name, region, countryCode, country, lat, lng, label: `${name}, ${region && region !== name ? region + ', ' : ''}${country}` });
 export const FAKE_PLACES: FakePlace[] = [
   p(2267057, 'Lisbon', 'Lisbon', 'PT', 'Portugal', 38.72, -9.14), p(2735943, 'Porto', 'Porto', 'PT', 'Portugal', 41.15, -8.61), p(3117735, 'Madrid', 'Madrid', 'ES', 'Spain', 40.42, -3.7),
   p(3128760, 'Barcelona', 'Catalonia', 'ES', 'Spain', 41.39, 2.17), p(2988507, 'Paris', 'Ile-de-France', 'FR', 'France', 48.86, 2.35), p(2643743, 'London', 'England', 'GB', 'United Kingdom', 51.51, -0.13),

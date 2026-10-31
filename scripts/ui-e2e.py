@@ -50,7 +50,7 @@ def do_basics(pg, name='Pradi', dob='1996-04-18', handle=None, gender='Man'):
     expect(pg.get_by_text('Available.', exact=False).first).to_be_visible()
 
 def pick_place(pg, query='Koch', label='Kochi'):
-    box = pg.get_by_role('combobox'); box.fill(query); pg.get_by_role('option').first.wait_for(); pg.keyboard.press('ArrowDown'); pg.keyboard.press('Enter')
+    box = pg.get_by_role('combobox'); box.fill(query); pg.get_by_role('listbox', name='Cities').get_by_role('option').first.wait_for(); pg.keyboard.press('ArrowDown'); pg.keyboard.press('Enter')
     expect(pg.get_by_test_id('place-chosen')).to_contain_text(label)
 
 def finish_onboarding(pg, shot=None, overflow=None):

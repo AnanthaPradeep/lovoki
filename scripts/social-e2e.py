@@ -251,9 +251,9 @@ def main(visuals_only=False):
             T('empty states for a brand-new account; no demo people', empty_notifications_and_posts)
 
             def demo_guard():
-                go(pg, '/discover'); expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible()
+                go(pg, '/discover'); expect(pg.get_by_role('heading', name='Dating is paused')).to_be_visible()
                 go(pg, '/messages'); expect(pg.get_by_role('heading', name='Messaging isn’t live yet')).to_be_visible()
-            T('Discover starts honestly empty without a gender; Messages remains a Phase 5 screen', demo_guard)
+            T('Discover starts honestly paused; Messages remains a Phase 5 screen', demo_guard)
 
             def reduced_motion_real():
                 """Asserts what reduced motion DOES: animated elements stop animating. Compares against a no-preference context."""

@@ -20,9 +20,12 @@ def overflow(pg): return pg.evaluate("document.documentElement.scrollWidth - doc
 def wait_card(pg): pg.wait_for_selector('[data-testid=dating-card]', timeout=8000)
 def card_name(pg): return pg.locator('[data-testid=dating-card] .dc-name').first.inner_text()
 
-def setup_dating(pg, gender='man', place='Lisbon, Portugal', lat=38.72, lng=-9.14):
+PLACE_IDS = {'Lisbon, Portugal': (2267057, 'Lisbon', 'Lisbon', 'PT', 'Portugal'), 'Madrid, Spain': (3117735, 'Madrid', 'Madrid', 'ES', 'Spain'), 'Porto, Portugal': (2735943, 'Porto', 'Porto', 'PT', 'Portugal')}
+
+def setup_dating(pg, gender='man', place='Lisbon, Portugal', lat=None, lng=None):
     """Gives the signed-in fake account a dating profile the way Settings would (the harness mirrors it into the dating world)."""
-    pg.evaluate(f"(() => {{ const a = [...window.__fake.accounts.values()].pop().account; a.gender = '{gender}'; a.interestedIn = ['women', 'men', 'non-binary']; a.place = {{ label: '{place}', lat: {lat}, lng: {lng} }}; a.areaLabel = '{place}'; }})()")
+    i, name, region, cc, country = PLACE_IDS[place]
+    pg.evaluate(f"(() => {{ const a = [...window.__fake.accounts.values()].pop().account; a.gender = '{gender}'; a.interestedIn = ['women', 'men', 'non-binary']; a.datingDiscoverable = true; a.place = {{ id: {i}, name: '{name}', region: '{region}', countryCode: '{cc}', country: '{country}', label: '{place}' }}; a.areaLabel = '{place}'; }})()")
     pg.wait_for_function("window.__fake.dworld.d([...window.__fake.accounts.keys()].pop()).gender !== null", timeout=4000)
     # Rita Test already likes every new account. Passing her keeps her out of the random deck, so tests that like or pass "whoever is first" stay deterministic.
     pg.evaluate(f"window.__fake.dworld.actions.set([...window.__fake.accounts.keys()].pop() + '>{RITA}', {{ action: 'pass', at: Date.now() }})")
@@ -43,16 +46,17 @@ def main():
         U.signup_confirm_login(pg, f'date.{uuid.uuid4().hex[:6]}@example.com'); U.finish_onboarding(pg)
 
         def needs_gender():
-            go(pg, '/discover'); expect(pg.get_by_role('heading', name='Add your gender to start')).to_be_visible(); expect(pg.get_by_role('link', name='Open settings')).to_be_visible()
+            go(pg, '/discover'); expect(pg.get_by_role('heading', name='Dating is paused')).to_be_visible(); expect(pg.get_by_role('link', name='Open settings')).to_be_visible()
             assert 'Dating Test' not in pg.inner_text('main'), 'no one is shown before the profile is ready'
-        T('discover: without a gender it says why and offers Settings (no fabricated people)', needs_gender)
+        T('discover: a new account is paused until Discover is turned on; it says why and offers Settings (no fabricated people)', needs_gender)
 
         def settings_dating():
             go(pg, '/settings'); sec = pg.get_by_role('region', name='Dating profile'); expect(sec).to_be_visible()
             sec.get_by_role('group', name='Your gender').get_by_role('button', name='Man', exact=True).click(); expect(pg.get_by_text('Gender saved.')).to_be_visible()
-            sec.get_by_label(re.compile('^Your city')).select_option(label='Lisbon, Portugal'); expect(pg.get_by_text('Your place is saved as Lisbon, Portugal.')).to_be_visible()
-            expect(sec.get_by_text('We never use your device location')).to_be_visible(); expect(sec.get_by_text('never shown to anyone')).to_be_visible()
-            assert pg.evaluate("document.querySelector('#place').value") == '' and 'Currently: Lisbon, Portugal' in pg.inner_text('#place'), 'place shown as saved'
+            pg.get_by_role('button', name=re.compile('^Remove Kochi')).click(); expect(pg.get_by_text('Your city was removed.')).to_be_visible()
+            sec.get_by_role('combobox').fill('Lisb'); pg.get_by_role('listbox', name='Cities').get_by_role('option').first.click(); expect(pg.get_by_text('Your city is saved as Lisbon, Portugal.')).to_be_visible()
+            expect(sec.get_by_text('We never show your city on a map')).to_be_visible()
+            expect(sec.get_by_test_id('place-chosen')).to_contain_text('Lisbon, Portugal')
             sec.get_by_label(re.compile('^Show my gender')).click(); expect(pg.get_by_text('Saved.').first).to_be_visible(); pg.wait_for_function("[...window.__fake.accounts.values()].pop().account.showGender === false"); sec.get_by_label(re.compile('^Show my gender')).click(); pg.wait_for_function("[...window.__fake.accounts.values()].pop().account.showGender === true")
         T('settings: gender, approximate city, display flags, honest privacy copy', settings_dating)
         setup_dating(pg); reset_filters(pg)

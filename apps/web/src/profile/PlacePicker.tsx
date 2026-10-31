@@ -63,9 +63,9 @@ export function PlacePicker({ api, value, onChange, error, label = 'Your city' }
     <div className="field" data-invalid={!!error}>
       <label htmlFor={`${id}-in`}>{label}</label>
       {value && (
-        <div className="row chip chip-dating" style={{ justifySelf: 'start', gap: 8 }} data-testid="place-chosen">
+        <div className="row chip chip-dating" style={{ justifySelf: 'start', gap: 8, paddingBlock: 0, paddingInlineEnd: 0 }} data-testid="place-chosen">
           <MapPin size={16} aria-hidden /><span className="break">{value.label}</span>
-          <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} aria-label={`Remove ${value.label}`} onClick={() => { onChange(null); setTimeout(() => box.current?.focus(), 0); }}><X size={16} aria-hidden /></button>
+          <button type="button" className="icon-btn" aria-label={`Remove ${value.label}`} onClick={() => { onChange(null); setTimeout(() => box.current?.focus(), 0); }}><X size={16} aria-hidden /></button>
         </div>
       )}
       <div style={{ position: 'relative' }}>
