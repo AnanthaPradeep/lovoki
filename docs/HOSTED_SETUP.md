@@ -51,6 +51,7 @@ Do these in the Supabase dashboard of the hosted project. The assistant cannot s
      - `http://localhost:5173/auth/callback**`
      - `http://127.0.0.1:5173/auth/callback**`
      - `http://localhost:4173/auth/callback**`
+     - `http://localhost:9710/auth/callback**` (the app's own dev port, set in `apps/web/vite.config.ts`)
    - The trailing `**` matters: the app appends `?next=...` to the callback, and a pattern without the wildcard rejects it. Verify by signing up (section 5): the confirmation mail's link must end on `/auth/callback?next=%2Fonboarding`, not on the Site URL.
 2. **Sign In / Providers > Email**: *Confirm email* **ON** (the app assumes it; the remote smoke script fails if it is off). *Secure email change* ON (default): changing email then needs a click in **both** the old and the new inbox, and the Settings screen says so.
 3. **Password**: minimum length **10** (matches the app's check), and **Prevent use of leaked passwords** ON where your plan offers it (Authentication > Attack Protection or Sign In / Providers > Password).
