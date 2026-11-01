@@ -60,7 +60,15 @@ const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoR
 const must = (r, w) => { if (r.error) throw new Error(`${w}: ${r.error.message}`); return r.data; };
 
 const cfg = await admin.from('app_config').select('environment').maybeSingle();
-if (cfg.error || !cfg.data) die('This database has no app_config table (apply the Phase 4.5 migration first). Nothing was done.', 2);
+if (cfg.error || !cfg.data) {
+  const m = cfg.error?.message ?? 'no row';
+  const kind = SERVICE.startsWith('sb_publishable_') || /"role":"anon"/.test(Buffer.from(SERVICE.split('.')[1] ?? '', 'base64url').toString()) ? 'The key in your file is the PUBLISHABLE/anon key. This script needs the SECRET (service_role) key.'
+    : /schema cache|PGRST20[25]/.test(m) ? 'The API has not noticed the new table yet. In the Supabase SQL editor run:  notify pgrst, "reload schema";  then try again.'
+    : /JWT|Invalid API key|apikey/i.test(m) ? 'The key was rejected. Copy the service_role (secret) key again, with no spaces or quotes.' : 'Is the Phase 4.5 migration applied?';
+  die(`Cannot read app_config: ${m}
+${kind}
+Nothing was done.`, 2);
+}
 if (cfg.data.environment !== 'development') die(`Refusing: app_config.environment is "${cfg.data.environment}". Sample content exists only in development.`, 2);
 
 // Closed input (a pipe, a CI job) counts as "no": the callback form lets us answer '' when stdin ends instead of waiting forever.
