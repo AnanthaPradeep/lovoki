@@ -39,18 +39,17 @@ const readEnvFile = (rel, re) => {
   return out;
 };
 
+// One prompt style for everything: readline. For the key, the echo is switched off so nothing appears on screen.
 const askHidden = (q) => new Promise((resolve) => {
-  const stdin = process.stdin; process.stdout.write(q);
-  if (!stdin.isTTY) { process.stdout.write('\n'); resolve(''); return; }
-  let buf = ''; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
-  const on = (chunk) => {
-    for (const c of chunk) {
-      if (c === '\r' || c === '\n') { stdin.setRawMode(false); stdin.pause(); stdin.off('data', on); process.stdout.write('\n'); resolve(buf.trim()); return; }
-      if (c === '\u0003') process.exit(3);
-      if (c === '\u007f' || c === '\b') buf = buf.slice(0, -1); else buf += c;
-    }
-  };
-  stdin.on('data', on);
+  if (!process.stdin.isTTY) { process.stdout.write(q + '
+'); resolve(''); return; } // no keyboard attached: nothing to ask
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  let muted = false; let done = false;
+  const write = rl._writeToOutput.bind(rl);
+  rl._writeToOutput = (str) => { if (!muted) write(str); };
+  rl.on('close', () => { if (!done) { done = true; resolve(''); } });
+  rl.question(q, (a) => { done = true; rl.close(); process.stdout.write('\n'); resolve(a.trim()); });
+  muted = true; // everything typed after the question is shown is hidden
 });
 
 let URL_, SERVICE;
@@ -175,6 +174,7 @@ console.log(`         ${people.reduce((n, p) => n + p.photosN, 0)} profile photo
 console.log('Accounts: @sample.lovoki.invalid addresses, random discarded passwords, permanently banned: nobody can log in as them.\n');
 if (hosted) { const a = await ask('HOSTED. Type the project ref to write: '); if (a !== opt('--confirm-ref')) die('Cancelled. Nothing was written.', 3); }
 else if (!flag('--yes')) { const a = await ask('Type "seed" to write this to your local stack: '); if (a !== 'seed') die('Cancelled. Nothing was written.', 3); }
+console.log('Confirmed. Looking up the cities…');
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -187,6 +187,8 @@ const put = async (bucket, path, buf) => must(await admin.storage.from(bucket).u
 
 const cityId = {};
 for (const city of new Set(people.map((p) => p.city))) {
+  process.stdout.write(`  city ${city}
+`);
   for (const n of CITY_NAMES[city]) {
     const rows = must(await admin.from('places').select('id,name,region,lat,lng,country_code,population').ilike('name', n).eq('country_code', COUNTRY[city]).order('population', { ascending: false }).limit(1), `place ${n}`);
     if (rows[0]) { cityId[city] = rows[0]; break; }
