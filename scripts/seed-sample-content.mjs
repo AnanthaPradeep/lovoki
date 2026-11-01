@@ -16,7 +16,6 @@
 // receive no notifications, and cannot be reported. Never run this against production: see docs/SAMPLE_CONTENT.md.
 import { existsSync, readFileSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
-import { createInterface } from 'node:readline/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
@@ -39,17 +38,25 @@ const readEnvFile = (rel, re) => {
   return out;
 };
 
-// One prompt style for everything: readline. For the key, the echo is switched off so nothing appears on screen.
-const askHidden = (q) => new Promise((resolve) => {
-  if (!process.stdin.isTTY) { process.stdout.write(q + String.fromCharCode(10)); resolve(''); return; } // no keyboard attached: nothing to ask
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-  let muted = false; let done = false;
-  const write = rl._writeToOutput.bind(rl);
-  rl._writeToOutput = (str) => { if (!muted) write(str); };
-  rl.on('close', () => { if (!done) { done = true; resolve(''); } });
-  rl.question(q, (a) => { done = true; rl.close(); process.stdout.write('\n'); resolve(a.trim()); });
-  muted = true; // everything typed after the question is shown is hidden
+// One keyboard reader for every question (no readline: it froze on Windows after a raw-mode prompt). `hidden` shows nothing as you type.
+// With no keyboard attached (a pipe, CI) the answer is empty, which every caller treats as "no".
+const askRaw = (q, hidden) => new Promise((resolve) => {
+  const stdin = process.stdin; process.stdout.write(q);
+  if (!stdin.isTTY) { process.stdout.write('\n'); resolve(''); return; }
+  let buf = ''; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
+  const on = (chunk) => {
+    for (const c of chunk) {
+      if (c === '\r' || c === '\n') { stdin.setRawMode(false); stdin.pause(); stdin.off('data', on); process.stdout.write('\n'); resolve(buf.trim()); return; }
+      if (c === '\u0003') { process.stdout.write('\n'); process.exit(3); }
+      if (c === '\u007f' || c === '\b') { if (buf) { buf = buf.slice(0, -1); if (!hidden) process.stdout.write('\b \b'); } continue; }
+      if (c < ' ') continue;
+      buf += c; if (!hidden) process.stdout.write(c);
+    }
+  };
+  stdin.on('data', on);
 });
+const askHidden = (q) => askRaw(q, true);
+const ask = (q) => askRaw(q, false);
 
 let URL_, SERVICE;
 const hosted = flag('--hosted');
@@ -91,12 +98,6 @@ Nothing was done.`, 2);
 }
 if (cfg.data.environment !== 'development') die(`Refusing: app_config.environment is "${cfg.data.environment}". Sample content exists only in development.`, 2);
 
-// Closed input (a pipe, a CI job) counts as "no": the callback form lets us answer '' when stdin ends instead of waiting forever.
-const ask = (q) => new Promise((resolve) => {
-  const rl = createInterface({ input: process.stdin, output: process.stdout }); let answered = false;
-  rl.on('close', () => { if (!answered) resolve(''); });
-  rl.question(q, (a) => { answered = true; rl.close(); resolve(a.trim()); });
-});
 const EMAIL_DOMAIN = '@sample.lovoki.invalid'; // reserved TLD: can never receive mail
 
 /* ------------------------------------------------------------------ remove */
