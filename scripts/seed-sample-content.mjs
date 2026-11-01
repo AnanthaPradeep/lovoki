@@ -76,7 +76,9 @@ if (hosted) {
   if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(URL_ ?? '')) die(`Refusing: without --hosted the API_URL must be a local address (got ${URL_ ?? 'nothing'}).`, 2);
   if (!SERVICE) die('scripts/.seed.env must contain SERVICE_ROLE_KEY from `supabase status`.', 1);
 }
-const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'seed-sample' }, realtime: { transport: WebSocket } });
+const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'seed-sample' }, realtime: { transport: WebSocket },
+  // A request that hangs becomes an error with a message, instead of a silent freeze.
+  global: { fetch: (u, i) => fetch(u, { ...i, signal: AbortSignal.timeout(60_000) }) } });
 const must = (r, w) => { if (r.error) throw new Error(`${w}: ${r.error.message}`); return r.data; };
 
 const cfg = await admin.from('app_config').select('environment').maybeSingle();
@@ -194,16 +196,18 @@ for (const city of new Set(people.map((p) => p.city))) {
 
 /* ------------------------------------------------------------------ accounts and profile rows */
 
+console.log('Reading existing accounts…');
 const existing = new Map();
 for (let page = 1; ; page++) { const l = must(await admin.auth.admin.listUsers({ page, perPage: 200 }), 'list users').users; l.forEach((u) => existing.set(u.id, u)); if (l.length < 200) break; }
 const interestSlugs = must(await admin.from('interests').select('slug'), 'interests').map((x) => x.slug);
 let created = 0;
-await pool(people, 4, async (p) => {
+console.log(`Creating ${people.filter((p) => !existing.has(p.id)).length} accounts…`);
+await pool(people, 3, async (p) => {
   if (!existing.has(p.id)) {
     const res = await admin.auth.admin.createUser({ id: p.id, email: `sample-${p.handle.replace(/\./g, '-')}${EMAIL_DOMAIN}`, password: randomBytes(24).toString('base64url'), email_confirm: true, ban_duration: '876000h',
       user_metadata: { terms_version: '2026-11-draft-1', confirm_18: 'true', marketing: 'false', sample: 'true' } });
     if (res.error) throw new Error(`createUser ${p.handle}: ${res.error.message}`);
-    created++;
+    created++; console.log(`  account ${created}: ${p.handle}`);
   }
 });
 console.log(`Accounts: ${created} created, ${people.length - created} already there.`);
