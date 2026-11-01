@@ -832,7 +832,7 @@ isOneToOne: false
 { Args: { "p_bio": string,"p_interests": (string)[],"p_prompts": Json }; Returns: undefined
                            },
 "save_avatar":
-{ Args: { "p_blurhash"?: string,"p_crop": Json,"p_photo_id": string }; Returns: undefined
+{ Args: { "p_blurhash"?: string,"p_crop"?: Json,"p_photo_id"?: string }; Returns: undefined
                            },
 "save_basics":
 { Args: { "p_date_of_birth": string,"p_display_name": string,"p_pronouns"?: string }; Returns: undefined

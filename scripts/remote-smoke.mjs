@@ -47,7 +47,7 @@ check('the API schema advertises no callable functions except pure helpers', rpc
 // 2) Every table and view we know about is denied (even if the schema lists nothing).
 const KNOWN = ['profiles', 'profiles_private', 'dating_preferences', 'onboarding_state', 'profile_interests', 'profile_prompts', 'profile_photos', 'interests', 'public_profiles',
   'posts', 'post_media', 'post_likes', 'post_saves', 'post_comments', 'follows', 'blocks', 'notifications', 'content_reports', 'dating_actions', 'matches', 'dating_exclusions',
-  'dating_rate', 'profile_places', 'discoverable_profiles', 'profile_details', 'places', 'consents', 'username_history', 'languages'];
+  'dating_rate', 'profile_places', 'discoverable_profiles', 'profile_details', 'places', 'consents', 'username_history', 'languages', 'app_config'];
 let leaked = false;
 for (const t of KNOWN) {
   const r = await get(`/rest/v1/${t}?select=*&limit=1`);
@@ -60,7 +60,8 @@ check('no anonymous response contained a date_of_birth', !leaked && !/date_of_bi
 
 // 3) Every function we know about is denied.
 for (const fn of ['feed_page', 'like_post', 'follow_user', 'report_content', 'notifications_page', 'block_user', 'create_post', 'can_view_content', 'social_profile', 'discover_profiles',
-  'like_profile', 'dating_profile', 'list_matches', 'ensure_account', 'save_basics', 'complete_onboarding', 'register_photo', 'check_username', 'search_places', 'save_place_id', 'orphan_post_media']) {
+  'like_profile', 'dating_profile', 'list_matches', 'ensure_account', 'save_basics', 'complete_onboarding', 'register_photo', 'check_username', 'search_places', 'save_place_id', 'orphan_post_media',
+  'get_social_profile', 'list_profile_posts', 'list_followers', 'list_following', 'search_profiles', 'suggested_people', 'sample_flags', 'set_account_private', 'save_social_settings', 'save_avatar', 'post_page', 'can_read_profile_photo']) {
   const r = await get(`/rest/v1/rpc/${fn}`, { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: '{}' });
   check(`anonymous call of ${fn}() is denied`, r.status >= 400 && r.status !== 500, `status ${r.status}`);
 }

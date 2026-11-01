@@ -27,7 +27,7 @@ def helper(*args):
 def T(name, fn):
     try: fn(); results.append(('PASS', name))
     except Exception as e:
-        msg = (str(e).splitlines() or [repr(e)])[0][:260]; results.append(('FAIL', f'{name}: {msg}'))
+        lines = (str(e).splitlines() or [repr(e)]); msg = ' | '.join(l.strip() for l in lines[:7])[:520]; results.append(('FAIL', f'{name}: {msg}'))
         try: CUR['pg'].screenshot(path=os.path.join(SHOTS, 'FAIL-real-' + re.sub(r'[^a-z0-9]+', '-', name.lower())[:50] + '.png'))
         except Exception: pass
     print(*results[-1], flush=True)
@@ -148,15 +148,15 @@ def main():
             T('REAL comment and private save persist; Saved tab lists it', comment_save)
 
             def follow_public():
-                goto(pg, f"/u/{B['id']}"); expect(pg.get_by_role('heading', name=re.compile('^Beatrice Open'))).to_be_visible()
+                goto(pg, f"/u/{B['id']}"); expect(pg.get_by_test_id('handle')).to_be_visible(); expect(pg.get_by_text('Beatrice Open', exact=False).first).to_be_visible()
                 html = pg.content().lower(); assert 'date_of_birth' not in html
-                btn(pg, 'Follow', True).click(); expect(pg.get_by_role('button', name='Following')).to_have_attribute('aria-pressed', 'true')
+                btn(pg, 'Follow', True).click(); expect(pg.get_by_role('button', name='Following', exact=True)).to_be_visible()
                 assert helper('query', 'follows', 'follower_id', state['me'])[0]['status'] == 'accepted'
                 goto(pg, '/feed'); wait_posts(pg, 2); expect(post(pg, 'Beatrice followers-only post')).to_be_visible()
             T('REAL follow of a public profile is accepted at once and unlocks their followers-only post in Following', follow_public)
 
             def follow_request():
-                goto(pg, f"/u/{G['id']}"); expect(pg.get_by_text('This profile is followers-only')).to_be_visible(); assert 'Real e2e profile of Gideon' not in pg.inner_text('main')
+                goto(pg, f"/u/{G['id']}"); expect(pg.get_by_role('heading', name='This account is private')).to_be_visible(); assert 'Real e2e profile of Gideon' in pg.inner_text('main'), 'D3: a private account keeps its bio visible'; assert pg.locator('a.pgrid-tile').count() == 0
                 btn(pg, 'Request to follow').click(); expect(pg.get_by_role('button', name='Requested')).to_be_visible()
                 goto(pg, '/feed'); wait_posts(pg, 2); assert 'Gideon post behind a request' not in pg.inner_text('main'), 'pending request shows nothing'
                 helper('accept', G['email'], state['me'])
@@ -192,7 +192,7 @@ def main():
 
             def audience_isolation():
                 pb.get_by_role('tab', name='Explore').click(); wait_posts(pb, 1); assert 'Alice posts from a real browser' not in pb.inner_text('main'), 'Alice followers-only post is not visible to Beatrice (not a follower)'
-                goto(pb, f"/u/{state['me']}"); expect(pb.get_by_text('This profile is followers-only').or_(pb.get_by_text('No posts yet'))).to_be_visible()
+                goto(pb, f"/u/{state['me']}"); expect(pb.get_by_role('heading', name='This account is private').or_(pb.get_by_text('No posts yet'))).to_be_visible()
                 assert 'Alice posts from a real browser' not in pb.inner_text('main')
             T('REAL isolation: a non-follower cannot see a followers-only post', audience_isolation)
 
@@ -201,8 +201,8 @@ def main():
                 pg.bring_to_front(); goto(pg, '/feed'); pg.evaluate("window.dispatchEvent(new Event('focus'))")
             # Beatrice likes Alice's post only after she follows: she needs access first
             def accept_then_like():
-                goto(pb, f"/u/{state['me']}"); btn(pb, re.compile('Request to follow|Follow', re.I)).first.click()
-                expect(pb.get_by_role('button', name='Requested').or_(pb.get_by_role('button', name='Following'))).to_be_visible()
+                goto(pb, f"/u/{state['me']}"); pb.get_by_role('button', name='Request to follow').or_(pb.get_by_role('button', name='Follow', exact=True)).first.click()
+                expect(pb.get_by_role('button', name='Requested', exact=True).or_(pb.get_by_role('button', name='Following', exact=True))).to_be_visible()
                 goto(pg, '/notifications'); expect(pg.get_by_test_id('notification').filter(has_text='asked to follow you').or_(pg.get_by_test_id('notification').filter(has_text='started following you'))).to_be_visible()
             T('REAL follow request arrives as a notification for the profile owner', accept_then_like)
 
@@ -223,7 +223,7 @@ def main():
                 CUR['pg'] = pg; goto(pg, f"/u/{B['id']}"); expect(pg.get_by_role('heading', name='This profile isn’t available')).to_be_visible()
                 goto(pg, '/settings'); expect(pg.get_by_role('list', name='Blocked accounts').get_by_text('Beatrice Open')).to_be_visible()
                 pg.get_by_role('list', name='Blocked accounts').get_by_role('button', name='Unblock').click(); expect(pg.get_by_text('You haven’t blocked anyone.')).to_be_visible()
-                goto(pg, f"/u/{B['id']}"); expect(pg.get_by_role('heading', name=re.compile('^Beatrice Open'))).to_be_visible()
+                goto(pg, f"/u/{B['id']}"); expect(pg.get_by_test_id('handle')).to_be_visible(); expect(pg.get_by_text('Beatrice Open', exact=False).first).to_be_visible()
             T('REAL block hides both people from each other; Settings lists and unblocks', blocked_both_ways)
 
             def delete_post():

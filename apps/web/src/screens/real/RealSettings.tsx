@@ -62,7 +62,7 @@ export function RealSettings() {
         <div className="settings-group">
           <label className="switch-row"><span className="grow"><b>Show me in Discover</b><br /><span className="subtle">Turn off to pause dating: you vanish from Discover at once and can’t like anyone. Matches stay.</span></span>
             <input type="checkbox" className="switch" checked={account.datingDiscoverable} disabled={busy} onChange={(e) => void savePrivacy({ datingDiscoverable: e.target.checked })} /></label>
-          <div className="switch-row"><span className="grow"><b>Account type</b><br /><span className="subtle" data-testid="private-explainer">{isPrivate
+          <div className="switch-row" style={{ flexWrap: 'wrap' }}><span className="grow" style={{ flexBasis: 280 }}><b>Account type</b><br /><span className="subtle" data-testid="private-explainer">{isPrivate
             ? 'Private: your posts, photos, videos and your follower lists are only for people you accept. Everyone can still see your @username, name and bio, and your profile picture is blurred for them. Followers you already have stay. Pending requests stay pending.'
             : 'Public: anyone on LOVOKI with a finished profile can see your posts and profile picture. Switching to private later keeps your current followers and hides everything else from everyone who isn’t one.'}</span></span>
             <div className="segmented" role="group" aria-label="Social visibility">

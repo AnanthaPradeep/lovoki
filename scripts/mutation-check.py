@@ -6,17 +6,22 @@ It never touches anything but the container named supabase_db_lovoki."""
 import os, re, subprocess, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-MIG = open(os.path.join(ROOT, 'supabase', 'migrations', '20261103000000_phase4_dating.sql'), encoding='utf-8').read()
+# Newest migration first: a function redefined later (like_profile in Phase 4.5) must be restored from its LATEST definition,
+# or this script would quietly put an older version back into the database.
+MIGS = [open(os.path.join(ROOT, 'supabase', 'migrations', f), encoding='utf-8').read()
+        for f in sorted(os.listdir(os.path.join(ROOT, 'supabase', 'migrations')), reverse=True) if f.endswith('.sql') and 'places_seed' not in f]
 
 def psql(sql):
     r = subprocess.run(['docker', 'exec', '-i', 'supabase_db_lovoki', 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q'], input=sql, capture_output=True, text=True, encoding='utf-8')
     if r.returncode != 0: raise SystemExit('psql failed: ' + r.stderr[:400])
 
 def func(name):
-    m = re.search(r'create (?:or replace )?function public\.' + name + r'.*?as \$\$.*?\$\$;', MIG, re.S)
-    assert m, name
-    s = m.group(0)
-    return s if s.startswith('create or replace') else s.replace('create function', 'create or replace function', 1)
+    for mig in MIGS:
+        m = re.search(r'create (?:or replace )?function public\.' + name + r'\(.*?as \$\$.*?\$\$;', mig, re.S)
+        if m:
+            s = m.group(0)
+            return s if s.startswith('create or replace') else s.replace('create function', 'create or replace function', 1)
+    raise AssertionError(f'function {name} not found in any migration')
 
 # Equivalent mutants cannot be killed by any test. The adult re-check inside _dating_eligible is defence in depth: the age-range
 # check constraint (18 to 99) already rejects every minor, so removing the re-check changes no observable behaviour.

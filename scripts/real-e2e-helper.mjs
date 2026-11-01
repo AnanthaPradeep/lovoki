@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import WebSocket from 'ws';
+import { postPicture, profilePicture } from './lib/sample-art.mjs';
 
 const require = createRequire(import.meta.url);
 const { createClient } = require('@supabase/supabase-js');
@@ -108,6 +109,24 @@ if (cmd === 'env') {
   must(await u.sb.rpc('save_preferences', { p_intention: 'long-term', p_interested_in: wants.split(','), p_age_min: 18, p_age_max: 99, p_max_distance: null }), 'prefs');
   must(await u.sb.rpc('save_privacy', { p_area_label: city, p_social_visibility: 'public', p_dating_discoverable: true }), 'discoverable');
   console.log(JSON.stringify({ id: u.id, email: u.email, password: PW, handle: u.handle }));
+} else if (cmd === 'profile-user') { // Phase 4.5: a finished account with a chosen avatar (with blurhash) and N posts that have thumbnails: label visibility(public|followers) postCount
+  const [label, vis, nStr] = args; const n = Number(nStr ?? 4);
+  const u = await person(label, vis ?? 'public', 'Lisbon');
+  const avatar = await profilePicture(label, 0, label, 0);
+  const apath = `${u.id}/${randomUUID()}.jpg`;
+  must(await u.sb.storage.from('profile-photos').upload(apath, avatar.buf, { contentType: 'image/jpeg' }), 'avatar upload');
+  const photoId = must(await u.sb.rpc('register_photo', { p_path: apath }), 'register avatar');
+  must(await u.sb.rpc('save_avatar', { p_photo_id: photoId, p_crop: { x: 0.5, y: 0.5, zoom: 1 }, p_blurhash: avatar.blurhash }), 'save_avatar');
+  const posts = [];
+  for (let i = 0; i < n; i++) {
+    const pic = await postPicture(`${label}:${i}`, i % 2 === 0); const id = randomUUID();
+    const main = `${u.id}/${id}/${randomUUID()}.jpg`, thumb = `${u.id}/${id}/${randomUUID()}.jpg`;
+    must(await u.sb.storage.from('post-media').upload(main, pic.original, { contentType: 'image/jpeg' }), 'post upload');
+    must(await u.sb.storage.from('post-media').upload(thumb, pic.thumb, { contentType: 'image/jpeg' }), 'thumb upload');
+    must(await u.sb.rpc('create_post', { p_post_id: id, p_caption: `${label} post ${i + 1}`, p_audience: 'public', p_media_path: main, p_thumb_path: thumb, p_width: pic.width, p_height: pic.height, p_blurhash: pic.blurhash }), 'create_post');
+    posts.push({ id, main, thumb });
+  }
+  console.log(JSON.stringify({ id: u.id, email: u.email, password: PW, handle: u.handle, posts }));
 } else if (cmd === 'like-profile-as') { // that person likes a profile (dating)
   const [email, target] = args;
   const sb = createClient(env.API_URL, env.ANON_KEY, opts('dl'));

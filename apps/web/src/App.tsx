@@ -6,15 +6,25 @@ import { useApplyTheme } from './ui-prefs';
 import { Shell } from './components/Shell';
 import { ModeBadge } from './components/ModeBadge';
 import { Discover } from './screens/Discover';
-import { ProfileDetail } from './screens/ProfileDetail';
+import { ProfileDetail, demoHandle } from './screens/ProfileDetail';
 import { Feed } from './screens/Feed';
 import { Connections } from './screens/Connections';
 import { Messages, Chat } from './screens/Messages';
 import { Me, EditProfile } from './screens/Me';
 import { Settings } from './screens/Settings';
 import { NotFound } from './screens/NotFound';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { Privacy, Terms } from './screens/Legal';
+import { handleFromPath } from '@lovoki/core';
+
+/** /@handle in demo mode: the same address shape as real mode, resolved against the made-up people on this device. */
+function DemoHandle() {
+  const { segment = '' } = useParams();
+  const s = useAppState();
+  const h = handleFromPath(segment);
+  const hit = h ? Object.values(s.profiles).find((p) => demoHandle(p.name) === h) : undefined;
+  return hit ? <ProfileDetail forcedId={hit.id} /> : <NotFound />;
+}
 
 /** Demo mode: the Phase 1 experience on local synthetic data. Never touches Supabase or real accounts. */
 export function DemoApp() {
@@ -40,6 +50,7 @@ export function DemoApp() {
           <Route path="/settings" element={<Settings />} />
           {/* Real-mode URLs bookmarked by a developer land on Discover rather than a dead end. */}
           {['/welcome', '/signup', '/login', '/forgot-password', '/check-email', '/auth/callback', '/reset-password', '/onboarding/*'].map((p) => <Route key={p} path={p} element={<Navigate to="/discover" replace />} />)}
+          <Route path="/:segment" element={<DemoHandle />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       )}

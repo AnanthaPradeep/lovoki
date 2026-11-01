@@ -7,7 +7,7 @@ import { ConfirmDialog, EmptyState, Menu, Notice, useToast } from '../../ui';
 import { useTitle } from '../../ui/useTitle';
 import { useMediaUrls, useSocial } from '../../social/SocialProvider';
 import { usePostList } from '../../social/usePagedList';
-import { PostGrid } from '../../social/PostGrid';
+import { PostGrid, useIsDesktop } from '../../social/PostGrid';
 import { PeopleDialog } from '../../social/People';
 import { useHideSamples } from '../../social/devTools';
 import { LoadError, LockMark, PersonAvatar, SampleBadge } from '../../social/parts';
@@ -26,6 +26,7 @@ export function ProfileScreen({ handle }: { handle: string }) {
   const { api } = useSocial();
   const toast = useToast();
   const hideSamples = useHideSamples();
+  const desktop = useIsDesktop();
   const [st, setSt] = useState<State>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>('posts');
@@ -95,7 +96,7 @@ export function ProfileScreen({ handle }: { handle: string }) {
   return (
     <div className="page stack" style={{ gap: 20 }}>
       <header className="ph" aria-label={`${p.displayName}’s profile`}>
-        <div className="ph-avatar"><PersonAvatar name={p.displayName} url={p.photoPath ? urls.get(p.photoPath) : undefined} size={96} crop={p.avatarCrop} blurhash={p.avatarBlurhash} locked={p.isPrivate} /></div>
+        <div className="ph-avatar"><PersonAvatar name={p.displayName} url={p.photoPath ? urls.get(p.photoPath) : undefined} size={desktop ? 128 : 84} crop={p.avatarCrop} blurhash={p.avatarBlurhash} locked={p.isPrivate} /></div>
         <div className="ph-top">
           <h1 className="truncate" data-testid="handle">@{name}</h1>
           {p.isPrivate && <LockMark size={18} />}{p.isSample && <SampleBadge />}

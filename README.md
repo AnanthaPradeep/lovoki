@@ -28,6 +28,7 @@ Browser tests (Python + Playwright: `pip install playwright && playwright instal
 ```sh
 npm run dev:demo   &   npm run e2e:demo      # 31 demo checks
 npm run dev:uitest &   npm run e2e:real-ui   # 49 real-mode UI checks, driven by in-memory fakes
+python scripts/profiles-e2e.py               # Phase 4.5: profile page, grid, lock panel, post viewer, search, suggestions, settings, samples (+ --visuals, --devtools-port=N)
 python scripts/identity-e2e.py               # Phase 3.5: username, consent, place picker, profile details, account security, /@handle, /p/:id (+ --visuals, --captcha-port=N)
 python scripts/social-e2e.py                 # Phase 3 screens on fakes + layout matrix
 python scripts/dating-e2e.py                 # Phase 4 screens on fakes + layout matrix
@@ -48,7 +49,7 @@ apps/web          React 19 + TypeScript + Vite
   src/data        Supabase adapters (the only place that imports supabase-js)
   src/auth, account, routes   providers and the route gate
 supabase/         migrations/ (schema, RLS, functions, views, storage) and tests/ (local Postgres suite)
-docs/             PHASE_2_SETUP.md ... PHASE_4_SETUP.md, PHASE_3_5_NOTES.md, HOSTED_SETUP.md, research/, screenshots/
+docs/             PHASE_2_SETUP.md ... PHASE_4_SETUP.md, PHASE_3_5_NOTES.md, PHASE_4_5_SETUP.md, SAMPLE_CONTENT.md, HOSTED_SETUP.md, research/, screenshots/
 ```
 Screens depend on the ports in `@lovoki/core`, never on the SDK. Swapping the backend means writing another adapter.
 
@@ -61,6 +62,8 @@ Screens depend on the ports in `@lovoki/core`, never on the SDK. Swapping the ba
 | Feed, posts, likes, saves, comments, follows, notifications, reports, blocks | Sample data, local only | Real (Postgres, RLS, private Storage) |
 | Discover, likes and passes, matches, unmatch, pause, filters, approximate distance | Sample data, local only | Real (Postgres, RLS, private Storage) |
 | Chat | Sample data, local only | Not built: an honest Phase 5 screen |
+| Instagram-style profile at `/@handle`, private accounts (hidden posts, media, lists, blurred avatar), thumbnails and blurhash, search, suggestions, Privacy overview | Same shape, made-up people on this device | Real (Postgres, RLS, private Storage) |
+| **Sample content**: 30 fictional people and ~230 posts, always labelled, never in production | n/a | Real rows flagged `is_sample`, development only (`docs/SAMPLE_CONTENT.md`) |
 | Usernames and `/@handle`, consent record, city picker (GeoNames), optional profile details with audiences, account security | n/a | Real (Postgres, RLS, GoTrue) |
 | Verification, account deletion, Google sign-in | Demo labels only | Not built |
 

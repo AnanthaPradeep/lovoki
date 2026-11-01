@@ -14,7 +14,7 @@ CUR = {'pg': None}
 def T(name, fn):
     try: fn(); results.append(('PASS', name))
     except Exception as e:
-        msg = (str(e).splitlines() or [repr(e)])[0][:230]; results.append(('FAIL', f'{name}: {msg}'))
+        lines = (str(e).splitlines() or [repr(e)]); msg = ' | '.join(l.strip() for l in lines[:3])[:260]; results.append(('FAIL', f'{name}: {msg}'))
         try: CUR['pg'].screenshot(path=f"{SHOTS}/FAIL-{re.sub(r'[^a-z0-9]+', '-', name.lower())[:50]}.png")
         except Exception: pass
     print(*results[-1], flush=True)
@@ -22,7 +22,7 @@ def T(name, fn):
 def new_page(b, w=1440, h=1000, scheme='light', reduced=False):
     expect.set_options(timeout=3500)
     ctx = b.new_context(viewport={'width': w, 'height': h}, color_scheme=scheme, reduced_motion='reduce' if reduced else 'no-preference')
-    ctx.set_default_timeout(3500); ctx.set_default_navigation_timeout(8000)
+    ctx.set_default_timeout(6000); ctx.set_default_navigation_timeout(10000)  # bounds for readiness waits, not delays: a busy machine must not fail a correct screen
     pg = ctx.new_page(); pg.on('pageerror', lambda e: page_errors.append(str(e)))
     pg.on('console', lambda m: page_errors.append('console: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     return pg

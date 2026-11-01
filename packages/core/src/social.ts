@@ -391,13 +391,6 @@ export function formatCount(n: number | null | undefined): string {
 export const BLURHASH_RE = /^[0-9A-Za-z#$%*+,.:;=?@[\]^_{|}~-]{6,120}$/;
 export const isBlurhash = (s: unknown): s is string => typeof s === 'string' && BLURHASH_RE.test(s);
 
-function decodeSafe(s: string) { try { return decodeURIComponent(s); } catch { return ''; } }
-/** A handle as typed in a URL: "@Name" or "name", never more than a plain handle. Returns null when it cannot be one. */
-export function handleFromParam(raw: string | undefined | null): string | null {
-  const t = decodeSafe((raw ?? '').trim()).replace(/^@/, '').toLowerCase();
-  return /^[a-z0-9._]{3,30}$/.test(t) ? t : null;
-}
-
 /** What the lock panel says. */
 export function privateLockCopy(p: Pick<SocialProfileView, 'followStatus' | 'displayName'>): { title: string; body: string } {
   return p.followStatus === 'pending'

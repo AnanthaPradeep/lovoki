@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, X, MessageCircle, MapPin, Briefcase, ShieldCheck, MoreHorizontal, UserX, Check } from 'lucide-react';
-import { INTENTION_LABEL, isMatched, postsBy, type Profile } from '@lovoki/core';
+import { INTENTION_LABEL, formatCount, isMatched, postsBy, type Profile } from '@lovoki/core';
 import { store, useAppState } from '../store';
 import { EmptyState, Menu, Photo, useToast } from '../ui';
 import { MatchDialog, useSafety } from '../components/dialogs';
 import { PostGrid } from './Feed';
 
-export function ProfileDetail() {
-  const { id = '' } = useParams();
+/** Demo profiles have no stored username: the handle is derived from the name, the same way for every screen. */
+export const demoHandle = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+
+export function ProfileDetail({ forcedId }: { forcedId?: string } = {}) {
+  const { id: routeId = '' } = useParams();
+  const id = forcedId ?? routeId;
   const s = useAppState();
   const nav = useNavigate();
   const p = s.profiles[id];
@@ -37,6 +41,12 @@ export function ProfileDetail() {
 
       <header className="stack" style={{ gap: 12 }}>
         <h1 className="profile-name">{p.name}<span className="muted" style={{ fontWeight: 400 }}>, {p.age}</span></h1>
+        <p className="subtle row" style={{ margin: 0, gap: 8, flexWrap: 'wrap', minWidth: 0 }} data-testid="demo-handle"><span className="break" style={{ minWidth: 0 }}>@{demoHandle(p.name)}</span> <span className="badge-sample" title="Demo mode: made-up people on this device only">Demo</span></p>
+        <ul className="ph-counts" data-testid="counts" aria-label="Counts">
+          <li><span style={{ display: 'grid', minHeight: 44, alignContent: 'center' }}><b>{formatCount(posts.length)}</b><span className="lbl">{posts.length === 1 ? 'post' : 'posts'}</span></span></li>
+          <li><span style={{ display: 'grid', minHeight: 44, alignContent: 'center' }}><b>{formatCount(p.followers)}</b><span className="lbl">{p.followers === 1 ? 'follower' : 'followers'}</span></span></li>
+          <li><span style={{ display: 'grid', minHeight: 44, alignContent: 'center' }}><b>{formatCount(p.following)}</b><span className="lbl">following</span></span></li>
+        </ul>
         <div className="dc-meta">
           <span><MapPin size={16} aria-hidden />{p.area}, about {p.distanceKm} km</span>
           {p.work && <span><Briefcase size={16} aria-hidden />{p.work}</span>}

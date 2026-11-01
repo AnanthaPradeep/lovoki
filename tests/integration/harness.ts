@@ -20,7 +20,15 @@ export const bigJpeg = (bytes: number) => { const b = new Uint8Array(bytes); b.s
 
 export interface TestUser { id: string; email: string; name: string; sb: SupabaseClient }
 const created: string[] = [];
-afterAll(async () => { for (const id of created.splice(0)) await admin.auth.admin.deleteUser(id).catch(() => undefined); });
+/** Removes everything a test user stored (two levels: <uid>/<file> and <uid>/<post>/<file>), so repeated runs do not pile up orphan objects. */
+async function removeStoredFiles(id: string) {
+  for (const bucket of ['profile-photos', 'post-media']) {
+    const top = (await admin.storage.from(bucket).list(id, { limit: 1000 })).data ?? []; const files: string[] = [];
+    for (const o of top) { if (o.id === null) for (const f of (await admin.storage.from(bucket).list(`${id}/${o.name}`, { limit: 1000 })).data ?? []) files.push(`${id}/${o.name}/${f.name}`); else files.push(`${id}/${o.name}`); }
+    if (files.length) await admin.storage.from(bucket).remove(files).catch(() => undefined);
+  }
+}
+afterAll(async () => { for (const id of created.splice(0)) { await removeStoredFiles(id).catch(() => undefined); await admin.auth.admin.deleteUser(id).catch(() => undefined); } });
 
 export const rid = () => randomUUID();
 const run = randomUUID().slice(0, 8);

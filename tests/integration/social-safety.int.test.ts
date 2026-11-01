@@ -280,7 +280,9 @@ describe('post-media storage', () => {
   it('the orphan sweep helper lists unreferenced objects and is operator-only', async () => {
     const path = `${other.id}/${rid()}/${rid()}.png`;
     await other.sb.storage.from('post-media').upload(path, PNG, { contentType: 'image/png' });
-    const listed = must(await admin.rpc('orphan_post_media', { p_older_than: '0 seconds' })) as string[];
+    // PostgREST caps one response at max_rows (1000), and earlier runs may have left orphans behind, so read every page.
+    const listed: string[] = [];
+    for (let from = 0; from < 20_000; from += 1000) { const page = must(await admin.rpc('orphan_post_media', { p_older_than: '0 seconds' }).range(from, from + 999)) as string[]; listed.push(...page); if (page.length < 1000) break; }
     expect(listed).toContain(path);
     expect(listed, 'registered media is never listed').not.toContain(pubPath);
     expect((await other.sb.rpc('orphan_post_media', { p_older_than: '0 seconds' })).error, 'clients cannot run the sweep helper').not.toBeNull();

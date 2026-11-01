@@ -2,7 +2,7 @@
 // They are NOT evidence about the database: tests/integration/privacy45.int.test.ts is.
 import { describe, expect, it } from 'vitest';
 import {
-  FAKE_BLURHASH, FakeSocialApi, FakeSocialWorld, SOCIAL_RULES, SIGNED_URL_CACHE_MS, SIGNED_URL_TTL_S, followAction, formatCount, handleFromParam, isBlurhash, privacyOverview, privateLockCopy,
+  FAKE_BLURHASH, FakeSocialApi, FakeSocialWorld, SOCIAL_RULES, SIGNED_URL_CACHE_MS, SIGNED_URL_TTL_S, followAction, formatCount, isBlurhash, privacyOverview, privateLockCopy,
   type SocialProfileView,
 } from './index';
 
@@ -15,14 +15,10 @@ describe('formatCount', () => {
   });
 });
 
-describe('blurhash and handle helpers', () => {
+describe('blurhash helper', () => {
   it('accepts real blurhashes and rejects anything that is not one', () => {
     expect(isBlurhash(FAKE_BLURHASH)).toBe(true); expect(isBlurhash('LEHV6nWB2yk8pyo0adR*.7kCMdnj')).toBe(true);
     for (const bad of ['', 'abc', 'has space in it!', 'x'.repeat(121), '<script>alert(1)</script>', null, 42]) expect(isBlurhash(bad)).toBe(false);
-  });
-  it('handleFromParam takes @name or name, lowercases, and refuses anything that cannot be a handle', () => {
-    expect(handleFromParam('@Ana.Test')).toBe('ana.test'); expect(handleFromParam('ana_1')).toBe('ana_1'); expect(handleFromParam('%40ana.test')).toBe('ana.test');
-    for (const bad of ['', '@', 'ab', 'a'.repeat(31), 'has space', '../etc', 'a/b', '%E0%A4%A', undefined, null]) expect(handleFromParam(bad as string)).toBeNull();
   });
 });
 

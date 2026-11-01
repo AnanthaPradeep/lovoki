@@ -113,6 +113,9 @@ with sync_playwright() as p:
     pg.keyboard.press('Tab'); pg.keyboard.press('Tab')
     ok('focus outline visible', pg.evaluate("getComputedStyle(document.activeElement).outlineStyle")=='solid')
     pg.screenshot(path=SHOTS + '/state-focus.png')
+    # Phase 4.5: demo profiles have the same shape as real ones: an @handle address, a handle line, compact counts
+    pg.goto(B+'/@maya'); ok('demo: /@handle opens a profile with its handle, a Demo label and counts', pg.get_by_test_id('demo-handle').inner_text().startswith('@maya') and 'demo' in pg.get_by_test_id('demo-handle').inner_text().lower() and 'followers' in pg.get_by_test_id('counts').inner_text())
+    pg.goto(B+'/@nobody.here'); ok('demo: an unknown /@handle is the not-found page, not a blank screen', pg.get_by_role('heading', name=re.compile('not found|isn.t here|Page', re.I)).count() > 0 or 'found' in pg.inner_text('main').lower())
     # horizontal overflow check at 390
     m=b.new_context(viewport={'width':390,'height':844}).new_page()
     over=[]

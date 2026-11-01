@@ -174,3 +174,31 @@ Terms and Privacy both carry a visible "DRAFT, needs legal review" banner. The P
 - The detail editor is long on a phone: groups are fieldsets in one scroll with anchors from the Complete-your-profile cards, not collapsible sections.
 - Avatar crop is a position and zoom control, not a drag-to-crop canvas.
 - Only Chromium was used; not looked at on a real device or in Safari or Firefox.
+
+# Addendum: Phase 4.5 (Instagram-style profiles, private accounts, labelled samples)
+
+## Skills used
+The Phase 1 design skills (`/mnt/skills/...`) and any `frontend-design` skill are **not on this machine**. The only design-related skill I found is `anthropic-skills:ui-design-styles`, a *catalog of named visual styles*. I read its index in an earlier session and **read none of its style files in this phase**, so **no named style was applied and none was reviewed against**. Phase 4.5 reuses the approved tokens (plum `#381932`, milk `#FFF3E6`, light and dark), the existing components and the existing layout rules. The profile header, grid and lock panel are new compositions of those tokens, not a redesign.
+
+## Verified (observed in test runs; screenshots in `docs/screenshots/run/` (fakes) and `docs/screenshots/phase45/` (real local stack))
+| Check | Evidence |
+|---|---|
+| No horizontal overflow at 390, 768 and 1440 in light and dark on: own profile, public profile with a grid, private profile (lock panel), sample profile, private sample, search with results, Settings with the Privacy overview, the Feed with the Suggested row, and the post viewer | `profiles-e2e.py --visuals` (fakes) and `real-e2e-profiles.py --visuals` (real local stack) |
+| 44 px targets at 390 on those screens, including grid tiles and the count buttons | same |
+| A long demo name no longer overflows the handle line (found by the demo overflow check, fixed) | `demo-e2e.py` |
+| `/me` header no longer overflows at 390 after adding "View profile" (found by the social layout matrix, fixed with wrap) | `social-e2e.py` |
+| Grid tiles are exactly square, use ~400 px thumbnails only (the browser never signs an original for a grid), and keep their size while loading (a skeleton, then the blurhash, then the image) | `real-e2e-profiles.py` reads the signed paths from the network |
+| A private account's avatar for a non-follower is a **blurred stand-in drawn from a stored hash**; no request for the owner's files is ever made | `real-e2e-profiles.py` (also asserts no `<img>` of the owner in the page) |
+| Post viewer: dialog with its own URL on desktop, full page on a phone, previous/next, arrow keys, Escape, focus returns, the profile stays underneath | `profiles-e2e.py`, `real-e2e-profiles.py` |
+| Search is a real combobox: `role=combobox`, `aria-expanded`, `aria-controls`, `aria-activedescendant`, a listbox of options, arrow keys, Enter, Escape; idle, loading, empty and error states, and Try again re-runs the same query (a bug found and fixed here) | `profiles-e2e.py` |
+| Reduced motion: images do not fade in | `profiles-e2e.py` |
+| Sample content is badged everywhere it appears (profile, post, search, suggestions, Discover) and explained in words | `profiles-e2e.py`, `real-e2e-profiles.py` |
+
+## Honest copy checks
+The lock panel says "This account is private. Follow to see their photos and videos." and changes to "Request sent" after a request. The Settings explanation says what a private account still shows (handle, name, bio, counts, a blurred picture) so nobody is surprised. The Privacy overview states both layers and says plainly that a private social account does **not** hide you in Discover. Sample profiles say they are fictional, that following does nothing for anyone, and that private samples never accept.
+
+## Known visual gaps
+- Avatars are one stored size. A real avatar thumbnail size (and a drag-to-crop canvas) was not built.
+- Carousels (several pictures per post) were not built (optional M7).
+- The post dialog uses the existing dialog width; on a very wide screen the picture is not shown beside the comments, as Instagram does.
+- Chromium only. Not looked at in Safari, Firefox or on a real device.

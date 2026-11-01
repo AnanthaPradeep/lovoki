@@ -268,7 +268,8 @@ begin
 end $$;
 
 drop function public.save_avatar(uuid, jsonb);
-create function public.save_avatar(p_photo_id uuid, p_crop jsonb, p_blurhash text default null) returns void language plpgsql security definer set search_path = ''
+-- Every argument has a default: "use my main photo" calls it with no photo and no crop (the client omits null arguments).
+create function public.save_avatar(p_photo_id uuid default null, p_crop jsonb default null, p_blurhash text default null) returns void language plpgsql security definer set search_path = ''
 as $$
 declare u uuid := public._require_uid();
 begin

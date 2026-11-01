@@ -177,7 +177,7 @@ def main():
         # ---------- /@handle and /p/:id ----------
         pg = new_page(b); U.CUR['pg'] = pg; U.signup_confirm_login(pg, f'nav.{uuid.uuid4().hex[:6]}@example.com'); U.finish_onboarding(pg)
         def handle_route():
-            go(pg, '/@ana.test'); expect(pg.get_by_role('heading', name=re.compile('^Ana Test'))).to_be_visible(); expect(pg.get_by_test_id('handle')).to_have_text('@ana.test')
+            go(pg, '/@ana.test'); expect(pg.get_by_test_id('handle')).to_have_text('@ana.test'); expect(pg.get_by_text('Ana Test, 31', exact=True)).to_be_visible()
             go(pg, '/@nobody.here'); expect(pg.get_by_role('heading', name='This profile isn’t available')).to_be_visible()
             go(pg, '/notahandle'); expect(pg.get_by_role('heading', name='We can’t find that page')).to_be_visible()
         T('/@handle opens the profile; an unknown handle and a non-handle path are different, plain states', handle_route)
