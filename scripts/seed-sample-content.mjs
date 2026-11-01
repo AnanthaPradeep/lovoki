@@ -41,16 +41,13 @@ const readEnvFile = (rel, re) => {
 
 const askHidden = (q) => new Promise((resolve) => {
   const stdin = process.stdin; process.stdout.write(q);
-  if (!stdin.isTTY) { process.stdout.write('
-'); resolve(''); return; }
+  if (!stdin.isTTY) { process.stdout.write('\n'); resolve(''); return; }
   let buf = ''; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
   const on = (chunk) => {
     for (const c of chunk) {
-      if (c === '' || c === '
-') { stdin.setRawMode(false); stdin.pause(); stdin.off('data', on); process.stdout.write('
-'); resolve(buf.trim()); return; }
-      if (c === '') process.exit(3);
-      if (c === '' || c === '') buf = buf.slice(0, -1); else buf += c;
+      if (c === '\r' || c === '\n') { stdin.setRawMode(false); stdin.pause(); stdin.off('data', on); process.stdout.write('\n'); resolve(buf.trim()); return; }
+      if (c === '\u0003') process.exit(3);
+      if (c === '\u007f' || c === '\b') buf = buf.slice(0, -1); else buf += c;
     }
   };
   stdin.on('data', on);
