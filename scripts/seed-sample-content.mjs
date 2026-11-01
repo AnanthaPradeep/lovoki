@@ -41,8 +41,7 @@ const readEnvFile = (rel, re) => {
 
 // One prompt style for everything: readline. For the key, the echo is switched off so nothing appears on screen.
 const askHidden = (q) => new Promise((resolve) => {
-  if (!process.stdin.isTTY) { process.stdout.write(q + '
-'); resolve(''); return; } // no keyboard attached: nothing to ask
+  if (!process.stdin.isTTY) { process.stdout.write(q + String.fromCharCode(10)); resolve(''); return; } // no keyboard attached: nothing to ask
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
   let muted = false; let done = false;
   const write = rl._writeToOutput.bind(rl);
