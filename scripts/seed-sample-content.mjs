@@ -39,13 +39,36 @@ const readEnvFile = (rel, re) => {
   return out;
 };
 
+const askHidden = (q) => new Promise((resolve) => {
+  const stdin = process.stdin; process.stdout.write(q);
+  if (!stdin.isTTY) { process.stdout.write('
+'); resolve(''); return; }
+  let buf = ''; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
+  const on = (chunk) => {
+    for (const c of chunk) {
+      if (c === '' || c === '
+') { stdin.setRawMode(false); stdin.pause(); stdin.off('data', on); process.stdout.write('
+'); resolve(buf.trim()); return; }
+      if (c === '') process.exit(3);
+      if (c === '' || c === '') buf = buf.slice(0, -1); else buf += c;
+    }
+  };
+  stdin.on('data', on);
+});
+
 let URL_, SERVICE;
 const hosted = flag('--hosted');
 if (hosted) {
   const ref = opt('--confirm-ref');
   if (!ref || !/^[a-z0-9]{20}$/.test(ref)) die('Hosted seeding needs --confirm-ref <your 20 character project ref>. Nothing was done.', 2);
-  const env = readEnvFile('./.seed.hosted.env', /^(SEED_URL|SEED_SERVICE_KEY)=(.*)$/);
-  if (!env?.SEED_URL || !env?.SEED_SERVICE_KEY) die('Missing scripts/.seed.hosted.env with SEED_URL and SEED_SERVICE_KEY (the file is git-ignored). Nothing was done.', 2);
+  let env = readEnvFile('./.seed.hosted.env', /^(SEED_URL|SEED_SERVICE_KEY)=(.*)$/);
+  if (!env?.SEED_SERVICE_KEY) {
+    // No file: ask for the key here. It is typed hidden, kept in memory for this run only, and never written anywhere.
+    const key = await askHidden('Paste the service_role (secret) key. Nothing is shown and nothing is saved: ');
+    if (!key) die('No key entered. Nothing was done.', 2);
+    env = { SEED_URL: `https://${ref}.supabase.co`, SEED_SERVICE_KEY: key };
+  }
+  if (!env?.SEED_URL) env.SEED_URL = `https://${ref}.supabase.co`;
   if (env.SEED_URL !== `https://${ref}.supabase.co`) die('SEED_URL does not match the project ref you confirmed. Nothing was done.', 2);
   URL_ = env.SEED_URL; SERVICE = env.SEED_SERVICE_KEY;
 } else {
